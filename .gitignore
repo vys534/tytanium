@@ -1,0 +1,8 @@
+.idea
+.env
+*.json
+uploads/*
+*.sqlite
+*.db
+*.yml
+!example.yml

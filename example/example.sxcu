@@ -1,0 +1,12 @@
+{
+  "Version": "13.0.1",
+  "DestinationType": "ImageUploader, TextUploader, FileUploader",
+  "RequestMethod": "POST",
+  "RequestURL": "https://yourdomainhere.com/upload",
+  "Headers": {
+    "Authorization": "your master key here"
+  },
+  "Body": "MultipartFormData",
+  "FileFormName": "file",
+  "URL": "$response$"
+}
