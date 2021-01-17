@@ -26,8 +26,7 @@ Make sure you have a Google Cloud Storage service account's JSON key and a Redis
 - Put the GCS JSON key in `conf/` as `key.json`.
 - Put your config in `conf/` as `config.yml` using `conf/example.yml` as a reference.   
 - Optionally, you can replace `favicon.ico` with your own icon! (It must have the same name)
-- If you do not want to set a rate limit, set the values on them to 0.
-- Optional: if you're using this with ShareX, check `example/example.sxcu` for a template sxcu file.
+- If you're using this with ShareX, check `example/example.sxcu` for a template sxcu file.
 
 ### Run with Docker
 
