@@ -1,4 +1,4 @@
-module github.com/vysiondev/hexfs
+module github.com/vysiondev/tytanium
 
 go 1.15
 
