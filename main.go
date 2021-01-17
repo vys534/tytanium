@@ -41,12 +41,12 @@ func main() {
 	viper.SetDefault("security.ratelimit.global", 20)
 	// Upload 10 times per minute.
 	viper.SetDefault("security.ratelimit.upload", 10)
-	viper.SetDefault("security.ratelimit.resetafter", time.Minute)
+	viper.SetDefault("security.ratelimit.resetafter", 60000)
 	// Download 50 MB per 5 minutes.
 	viper.SetDefault("security.bandwidthlimit.download", 52428800)
 	// Upload 250 MB per 5 minutes.
 	viper.SetDefault("security.bandwidthlimit.upload", 262144000)
-	viper.SetDefault("security.bandwidthlimit.resetafter", time.Minute*5)
+	viper.SetDefault("security.bandwidthlimit.resetafter", 60000*5)
 	err := viper.Unmarshal(&configuration)
 	if err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)

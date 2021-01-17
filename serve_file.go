@@ -54,7 +54,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 		_ = readBase.Close()
 	}()
 
-	if b.Config.Security.BandwidthLimit.Download > 0 {
+	if b.Config.Security.BandwidthLimit.Download > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
 		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, readBase.Attrs.Size)
 		if err != nil {
 			SendTextResponse(ctx, "There was a problem checking bandwidth limits. "+err.Error(), fasthttp.StatusInternalServerError)

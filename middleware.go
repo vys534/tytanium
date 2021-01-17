@@ -20,46 +20,50 @@ const (
 // Bandwidth checking for uploading is set as BW_UP_192.168.1.1, for another example.
 func (b *BaseHandler) limitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
-		p := string(ctx.Request.URI().Path())
-		pathType := LimitGeneralPath
-		reqLimit := b.Config.Security.RateLimit.Global
-
-		switch strings.ToLower(p) {
-		case "/upload":
-			pathType = LimitUploadPath
-			reqLimit = b.Config.Security.RateLimit.Upload
-		}
-		if reqLimit <= 0 {
+		if b.Config.Security.RateLimit.ResetAfter <= 0 {
 			h(ctx)
 		} else {
-			rlString := ""
-			// Check the global rate limit
-			isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", net.GetIP(ctx)), b.Config.Security.RateLimit.Global, b.Config.Security.RateLimit.ResetAfter, 1)
-			if err != nil {
-				SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
-				return
-			}
-			if !isGlobalRateLimitOk {
-				rlString = "Global"
-			}
+			p := string(ctx.Request.URI().Path())
+			pathType := LimitGeneralPath
+			reqLimit := b.Config.Security.RateLimit.Global
 
-			if pathType != LimitGeneralPath {
-				// Check the route exclusive rate limit
-				isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, net.GetIP(ctx)), reqLimit, b.Config.Security.RateLimit.ResetAfter, 1)
+			switch strings.ToLower(p) {
+			case "/upload":
+				pathType = LimitUploadPath
+				reqLimit = b.Config.Security.RateLimit.Upload
+			}
+			if reqLimit <= 0 {
+				h(ctx)
+			} else {
+				rlString := ""
+				// Check the global rate limit
+				isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", net.GetIP(ctx)), b.Config.Security.RateLimit.Global, b.Config.Security.RateLimit.ResetAfter, 1)
 				if err != nil {
-					SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
+					SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 					return
 				}
-
-				if !isPathOk {
-					rlString = fmt.Sprintf("(path: %d)", pathType)
+				if !isGlobalRateLimitOk {
+					rlString = "Global"
 				}
+
+				if pathType != LimitGeneralPath {
+					// Check the route exclusive rate limit
+					isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, net.GetIP(ctx)), reqLimit, b.Config.Security.RateLimit.ResetAfter, 1)
+					if err != nil {
+						SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
+						return
+					}
+
+					if !isPathOk {
+						rlString = fmt.Sprintf("(path: %d)", pathType)
+					}
+				}
+				if len(rlString) > 0 {
+					SendTextResponse(ctx, fmt.Sprintf("You are being rate limited. (path: %s)", rlString), fasthttp.StatusTooManyRequests)
+					return
+				}
+				h(ctx)
 			}
-			if len(rlString) > 0 {
-				SendTextResponse(ctx, fmt.Sprintf("You are being rate limited. (path: %s)", rlString), fasthttp.StatusTooManyRequests)
-				return
-			}
-			h(ctx)
 		}
 	}
 }

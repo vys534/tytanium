@@ -37,7 +37,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 	f := mp.File[fileHandler][0]
 
-	if b.Config.Security.BandwidthLimit.Upload > 0 {
+	if b.Config.Security.BandwidthLimit.Upload > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
 		isUploadBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_UP_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Upload, b.Config.Security.RateLimit.ResetAfter, f.Size)
 		if err != nil {
 			SendTextResponse(ctx, "There was a problem checking bandwidth limits for uploading. "+err.Error(), fasthttp.StatusInternalServerError)
