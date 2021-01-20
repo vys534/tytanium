@@ -1,0 +1,12 @@
+[Unit]
+Description=Tytanium File Host
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+ExecStart=
+WorkingDirectory=
+
+[Install]
+WantedBy=multi-user.target

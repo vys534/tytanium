@@ -91,6 +91,12 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	u := fmt.Sprintf("%s/%s", net.GetRoot(ctx), fileName)
+	var u string
+	if mp.Value["omitdomain"] != nil && len(mp.Value["omitdomain"]) > 0 && mp.Value["omitdomain"][0] == "1" {
+		u = fileName
+	} else {
+		u = fmt.Sprintf("%s/%s", net.GetRoot(ctx), fileName)
+	}
+
 	SendTextResponse(ctx, u, fasthttp.StatusOK)
 }

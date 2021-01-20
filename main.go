@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Version   = "1.13.0"
+	Version   = "1.13.1"
 	GCSKeyLoc = "./conf/key.json"
 )
 
@@ -37,15 +37,7 @@ func main() {
 	viper.SetDefault("server.maxconnsperip", 16)
 	viper.SetDefault("security.maxsizebytes", 52428800)
 	viper.SetDefault("security.publicmode", false)
-	// Make 20 requests globally per minute. Overrides all path-specific rate limits.
-	viper.SetDefault("security.ratelimit.global", 20)
-	// Upload 10 times per minute.
-	viper.SetDefault("security.ratelimit.upload", 10)
 	viper.SetDefault("security.ratelimit.resetafter", 60000)
-	// Download 50 MB per 5 minutes.
-	viper.SetDefault("security.bandwidthlimit.download", 52428800)
-	// Upload 250 MB per 5 minutes.
-	viper.SetDefault("security.bandwidthlimit.upload", 262144000)
 	viper.SetDefault("security.bandwidthlimit.resetafter", 60000*5)
 	err := viper.Unmarshal(&configuration)
 	if err != nil {
