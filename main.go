@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Version   = "1.13.1"
+	Version   = "1.13.2"
 	GCSKeyLoc = "./conf/key.json"
 )
 
@@ -34,7 +34,6 @@ func main() {
 	viper.SetDefault("net.redis.db", 0)
 	viper.SetDefault("server.idlen", 5)
 	viper.SetDefault("server.concurrency", 128*4)
-	viper.SetDefault("server.maxconnsperip", 16)
 	viper.SetDefault("security.maxsizebytes", 52428800)
 	viper.SetDefault("security.publicmode", false)
 	viper.SetDefault("security.ratelimit.resetafter", 60000)
@@ -77,12 +76,10 @@ func main() {
 		Handler:                       b.limitPath(handleCORS(b.handleHTTPRequest)),
 		HeaderReceived:                nil,
 		ContinueHandler:               nil,
-		Name:                          "Tytanium " + Version,
 		Concurrency:                   configuration.Server.Concurrency,
 		DisableKeepalive:              false,
 		ReadTimeout:                   30 * time.Minute,
 		WriteTimeout:                  30 * time.Minute,
-		MaxConnsPerIP:                 configuration.Server.MaxConnsPerIP,
 		TCPKeepalive:                  false,
 		TCPKeepalivePeriod:            0,
 		MaxRequestBodySize:            configuration.Security.MaxSizeBytes + 2048,

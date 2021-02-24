@@ -18,6 +18,7 @@ A file host server with server security in mind. Intended for private use.
 - Whitelist/blacklist file types, and check them based on their headers, not the extension
 - Sanitize files to prevent against phishing attacks
 - Public/private mode (private by default)
+- Zero-width image URLs that aren't absurdly long
 
 ## Setup
 
@@ -54,4 +55,8 @@ If anything goes wrong, you can check `journalctl -u tytanium` and find out what
 
 ### How to Upload
 
-Create a POST request to `/upload` with a file in the field "file". You can also set `omitdomain` to 1 if you don't want the host's original domain appended before the file name in the response. E.g: `a.png` instead of `https://a.com/a.png`
+Create a POST request to `/upload` with a file in the field "file". Put the key in `Authorization` header
+
+Set `?omitdomain=1`, if you don't want the host's original domain appended before the file name in the response. E.g: `a.png` instead of `https://a.com/a.png`
+
+Add `?zerowidth=1` and set it to `1` to make your image URLs appear "zero-width". If you don't get what that means, try it, and see what happens.

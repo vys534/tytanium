@@ -69,9 +69,6 @@ server:
   # If an ID collision occurs the most recent file will override.
   # This default value gives 62^8 possible values, and should be good enough.
   idlen: 8
-  # How many requests to handle at once, per IP.
-  # This default value of 16 means that an IP can only have 16 ongoing uploads/downloads with the server.
-  maxconnsperip: 16
   # How many TOTAL requests the server can handle at once.
   # Requests will not be served to ANYONE if the # of connections everywhere is above this number.
   concurrency: 512

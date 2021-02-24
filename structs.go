@@ -34,10 +34,9 @@ type FilterConfig struct {
 }
 
 type ServerConfig struct {
-	Port          string
-	Concurrency   int
-	MaxConnsPerIP int
-	IDLen         int
+	Port        string
+	Concurrency int
+	IDLen       int
 }
 
 type NetConfig struct {

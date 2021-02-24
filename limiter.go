@@ -36,7 +36,7 @@ func Try(ctx context.Context, redisClient *redis.Client, id string, max int64, r
 			if err := pipeliner.IncrBy(ctx, id, incrBy).Err(); err != nil {
 				return err
 			}
-			return pipeliner.Expire(ctx, id, time.Duration(resetAfter) * time.Millisecond).Err()
+			return pipeliner.Expire(ctx, id, time.Duration(resetAfter)*time.Millisecond).Err()
 		})
 
 		return err

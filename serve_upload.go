@@ -18,7 +18,6 @@ const fileHandler = "file"
 func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	auth := b.IsAuthorized(ctx)
 	if !auth && !b.Config.Security.PublicMode {
-		SendTextResponse(ctx, "Not authorized to upload.", fasthttp.StatusUnauthorized)
 		return
 	}
 	mp, e := ctx.Request.MultipartForm()
@@ -91,8 +90,12 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	if string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
+		fileName = StringToZWS(fileName)
+	}
+
 	var u string
-	if mp.Value["omitdomain"] != nil && len(mp.Value["omitdomain"]) > 0 && mp.Value["omitdomain"][0] == "1" {
+	if string(ctx.QueryArgs().Peek("omitdomain")) == "1" {
 		u = fileName
 	} else {
 		u = fmt.Sprintf("%s/%s", net.GetRoot(ctx), fileName)

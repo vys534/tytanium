@@ -10,6 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/vysiondev/httputil/net"
 	"io"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,13 +34,23 @@ var (
 // ServeFile will serve the / endpoint. It gets the "id" variable from mux and tries to find the file's information in the database.
 // If an ID is either not provided or not found, the function hands the request off to ServeNotFound.
 func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
-	id := ctx.Request.URI().LastPathSegment()
+	id := string(ctx.Request.URI().LastPathSegment())
 	if len(id) == 0 {
 		b.ServeNotFound(ctx)
 		return
 	}
+	decoded := url.QueryEscape(id)
 
-	wc := b.GCSClient.Bucket(b.Config.Net.GCS.BucketName).Object(string(id)).Key(b.Key)
+	// Most likely a zero-with URL but we can check for that
+	if strings.HasPrefix(decoded, "%") {
+		id = ZWSToString(id)
+		if len(id) == 0 {
+			SendTextResponse(ctx, "There was a problem converting the path segment to a string.", fasthttp.StatusBadRequest)
+			return
+		}
+	}
+
+	wc := b.GCSClient.Bucket(b.Config.Net.GCS.BucketName).Object(id).Key(b.Key)
 	// We don't need a limited reader because mimetype.DetectReader automatically caps it
 	readBase, e := wc.NewReader(ctx)
 	if e != nil {
@@ -79,8 +90,8 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 			ctx.Response.Header.Add("Pragma", "no-cache")
 			ctx.Response.Header.Add("Expires", "0")
 
-			url := fmt.Sprintf("%s/%s?%s=true", net.GetRoot(ctx), id, rawParam)
-			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", url, 1))
+			u := fmt.Sprintf("%s/%s?%s=true", net.GetRoot(ctx), id, rawParam)
+			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", u, 1))
 			return
 		}
 	}
@@ -93,7 +104,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 	} else {
 		ctx.Response.Header.Set("Content-Type", mimeType.String())
 	}
-	ctx.Response.Header.Set("Content-Disposition", "inline")
+	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", id))
 	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(readBase.Attrs.Size, 10))
 
 	readBase.Close()
