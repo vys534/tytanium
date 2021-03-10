@@ -1,6 +1,10 @@
 # EXAMPLE CONFIGURATION
-# Rename this file to "config.yml" before you start Tytanium.
+# Rename this file to "config.yml" before you start LoliHost.
 
+storage:
+  # If there is another directory you want to save files to (instead of "files" in the executable's
+  # directory), then specify an absolute path here.
+  directory:
 security:
   # The key to upload.
   masterkey:
@@ -9,17 +13,16 @@ security:
   # the server would not be able to respond at all LOL
   maxsizebytes: 52428800
   # Key not required to upload if this is true.
+  # Enable this if you know what you're doing.
   publicmode: false
-  # Ratelimit values.
   ratelimit:
     # When to reset the limit, in milliseconds.
-    # This is 1 minute.
+    # The default value here is 1 minute.
     resetafter: 60000
     # Handles /upload path alone.
-    # It should be in a multiple of 2 since some clients need to make OPTIONS requests first.
-    # This default value, for example, allows 6 uploads per minute.
+    # This default value, for example, allows 10 uploads per minute.
     # If not specified there will be no rate limit for the upload path.
-    upload: 12
+    upload: 10
     # This is the GLOBAL rate limit.
     # All requests to the server are limited to this number, per minute.
     # If a per-route rate limit exceeds this number it will be overridden by this number.
@@ -47,7 +50,7 @@ security:
       - application/x-sqlite3
       - application/x-object
       - application/x-elf
-    # If this list is populated, then Tytanium will ONLY allow these mime types to be displayed.
+    # If this list is populated, then LoliHost will ONLY allow these mime types to be displayed.
     # If a mime type from this list is also in the sanitize list, it will be sanitized.
     # If a mime type from this list is also in the blacklist, it will be blacklisted anyway.
     # If no values are given, a whitelist will not be set.
@@ -64,7 +67,7 @@ security:
 
 server:
   # What port to listen on. Default is 3030
-  port:
+  port: 3030
   # ID length to use. (e.g: xxxxx.png has an ID length of 5)
   # If an ID collision occurs the most recent file will override.
   # This default value gives 62^8 possible values, and should be good enough.
@@ -78,7 +81,3 @@ net:
     uri:
     password:
     db: 0
-  gcs:
-    # AES-256 Base64 encoded key. You need to first generate an AES256 encryption key, then convert it to Base64.
-    secretkey:
-    bucketname:

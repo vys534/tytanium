@@ -1,10 +1,14 @@
 {
   "Version": "13.0.1",
+  "Name": "LoliHost Example Configuration",
   "DestinationType": "ImageUploader, TextUploader, FileUploader",
   "RequestMethod": "POST",
-  "RequestURL": "https://yourdomainhere.com/upload",
+  "RequestURL": "https://domain.com/upload",
+  "Parameters": {
+    "zerowidth": "$prompt:Zero width? (1 for yes)|0$"
+  },
   "Headers": {
-    "Authorization": "your master key here"
+    "Authorization": "your key here"
   },
   "Body": "MultipartFormData",
   "FileFormName": "file",

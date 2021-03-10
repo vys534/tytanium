@@ -4,6 +4,7 @@ import (
 	"strings"
 )
 
+// hey yeah if it works and its stupid it aint stupid
 const characterIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789."
 
 var (

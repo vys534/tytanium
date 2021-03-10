@@ -4,13 +4,14 @@
 package main
 
 import (
-	"cloud.google.com/go/storage"
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
 	"github.com/vysiondev/httputil/net"
 	"io"
 	"net/url"
+	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -50,23 +51,29 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	wc := b.GCSClient.Bucket(b.Config.Net.GCS.BucketName).Object(id).Key(b.Key)
-	// We don't need a limited reader because mimetype.DetectReader automatically caps it
-	readBase, e := wc.NewReader(ctx)
-	if e != nil {
-		if e == storage.ErrObjectNotExist {
+	// we only need to know if it exists or not
+	fileInfo, err := os.Stat(path.Join(b.Config.Storage.Directory, id))
+	if err != nil {
+		if os.IsNotExist(err) {
 			b.ServeNotFound(ctx)
 			return
 		}
+		SendTextResponse(ctx, "There was a problem calling stat on the file. "+err.Error(), fasthttp.StatusInternalServerError)
+		return
+	}
+
+	// We don't need a limited reader because mimetype.DetectReader automatically caps it
+	fileReader, e := os.OpenFile(path.Join(b.Config.Storage.Directory, id), os.O_RDONLY, 0644)
+	defer func() {
+		_ = fileReader.Close()
+	}()
+	if e != nil {
 		SendTextResponse(ctx, "There was a problem reading the file. "+e.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
-	defer func() {
-		_ = readBase.Close()
-	}()
 
 	if b.Config.Security.BandwidthLimit.Download > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
-		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, readBase.Attrs.Size)
+		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, fileInfo.Size())
 		if err != nil {
 			SendTextResponse(ctx, "There was a problem checking bandwidth limits. "+err.Error(), fasthttp.StatusInternalServerError)
 			return
@@ -77,9 +84,9 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	mimeType, e := mimetype.DetectReader(readBase)
+	mimeType, e := mimetype.DetectReader(fileReader)
 	if e != nil {
-		SendTextResponse(ctx, "Cannot detect the mime type of this file retrieved from server. Is it corrupted?", fasthttp.StatusBadRequest)
+		SendTextResponse(ctx, "Cannot detect the mime type of this file retrieved from server. It might be corrupted.", fasthttp.StatusBadRequest)
 		return
 	}
 
@@ -105,16 +112,14 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 		ctx.Response.Header.Set("Content-Type", mimeType.String())
 	}
 	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", id))
-	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(readBase.Attrs.Size, 10))
+	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 
-	readBase.Close()
-
-	fileReader, e := wc.NewReader(ctx)
+	_, e = fileReader.Seek(0, io.SeekStart)
 	if e != nil {
-		SendTextResponse(ctx, "Cannot open a new reader for outbound file. "+e.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, "Failed to reset the reader to 0.", fasthttp.StatusInternalServerError)
 		return
 	}
-	defer fileReader.Close()
+
 	_, copyErr := io.Copy(ctx.Response.BodyWriter(), fileReader)
 	if copyErr != nil {
 		SendTextResponse(ctx, "Could not write file to client. "+copyErr.Error(), fasthttp.StatusInternalServerError)

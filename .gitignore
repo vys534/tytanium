@@ -6,3 +6,4 @@ uploads/*
 *.db
 *.yml
 !example.yml
+files/

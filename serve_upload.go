@@ -7,13 +7,18 @@ import (
 	"github.com/vysiondev/httputil/net"
 	"github.com/vysiondev/httputil/rand"
 	"io"
+	"os"
 	"path"
 	"sync"
 )
 
 const fileHandler = "file"
 
-// ServeUpload handles all incoming POST requests to /upload. It will take a multipart form, parse the file, then write it to GCS.
+func (b *BaseHandler) GetValidFileID() {
+
+}
+
+// ServeUpload handles all incoming POST requests to /upload. It will take a multipart form, parse the file, then write it to disk.
 // The file's information will also be inserted into the database.
 func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	auth := b.IsAuthorized(ctx)
@@ -49,11 +54,14 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	openedFile, e := f.Open()
+	defer func() {
+		_ = openedFile.Close()
+	}()
+
 	if e != nil {
 		SendTextResponse(ctx, "Failed to open file from request: "+e.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
-	defer openedFile.Close()
 
 	mimeType, e := mimetype.DetectReader(openedFile)
 	if e != nil {
@@ -67,26 +75,55 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 	_, e = openedFile.Seek(0, io.SeekStart)
 	if e != nil {
-		SendTextResponse(ctx, "Failed to reset the reader.", fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, "Failed to reset the reader to 0.", fasthttp.StatusInternalServerError)
 		return
 	}
 
-	var wg sync.WaitGroup
-	randomStringChan := make(chan string, 1)
-	go func() {
-		wg.Add(1)
-		rand.RandBytes(b.Config.Server.IDLen, randomStringChan, func() { wg.Done() })
+	var fileName string
+	attempts := 0
+
+	// loop until an unoccupied id is found
+	for {
+		var wg sync.WaitGroup
+		randomStringChan := make(chan string, 1)
+		go func() {
+			wg.Add(1)
+			rand.RandBytes(b.Config.Server.IDLen, randomStringChan, func() { wg.Done() })
+		}()
+		wg.Wait()
+		fileId := <-randomStringChan
+		fileName = fileId + path.Ext(f.Filename)
+
+		i, e := os.Stat(path.Join(b.Config.Storage.Directory, fileName))
+		if e != nil {
+			if os.IsNotExist(e) {
+				break
+			}
+		}
+		if i == nil {
+			break
+		}
+		attempts++
+		if attempts >= 10 {
+			SendTextResponse(ctx, "Tried too many times to find a valid file ID to use. Consider increasing the ID length.", fasthttp.StatusInternalServerError)
+			return
+		}
+	}
+
+
+	fsFile, err := os.Create(path.Join(b.Config.Storage.Directory, fileName))
+	defer func() {
+		_ = fsFile.Close()
 	}()
-	wg.Wait()
-	fileId := <-randomStringChan
-	fileName := fileId + path.Ext(f.Filename)
 
-	wc := b.GCSClient.Bucket(b.Config.Net.GCS.BucketName).Object(fileName).Key(b.Key).NewWriter(ctx)
-	defer wc.Close()
+	if err != nil {
+		SendTextResponse(ctx, "There was a problem creating this file. "+err.Error(), fasthttp.StatusInternalServerError)
+		return
+	}
 
-	_, writeErr := io.Copy(wc, openedFile)
+	_, writeErr := io.Copy(fsFile, openedFile)
 	if writeErr != nil {
-		SendTextResponse(ctx, "There was a problem writing the file to GCS. "+writeErr.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, "There was a problem writing this file to disk. "+writeErr.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 

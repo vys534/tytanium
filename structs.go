@@ -4,6 +4,11 @@ type Configuration struct {
 	Security SecurityConfig
 	Server   ServerConfig
 	Net      NetConfig
+	Storage  StorageConfig
+}
+
+type StorageConfig struct {
+	Directory string
 }
 
 type SecurityConfig struct {
@@ -41,16 +46,10 @@ type ServerConfig struct {
 
 type NetConfig struct {
 	Redis RedisConfig
-	GCS   GCSConfig
 }
 
 type RedisConfig struct {
 	URI      string
 	Password string
 	Db       int
-}
-
-type GCSConfig struct {
-	BucketName string
-	SecretKey  string
 }
