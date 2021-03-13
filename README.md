@@ -1,23 +1,21 @@
 # LoliHost
 
-Originally created for [Loli Coalition](https://l-o.li). This is a file host server with server security in mind. Intended for private use.  
+Created for use on https://l-o.li (now runs on a private fork from this repo). A file host server with security in mind, which stores everything locally. Intended for private/small group use, and for things like screenshots (though you could use it for something else as well).
 
 ## Features
     
 - Excellent compatibility with image capture suites like ShareX/MagicCap/etc.
-- Limit requests to a certain amount for an interval that you can choose
-- Limit upload/download for an interval that you choose
-- Compatible with Docker
-- Rate limiting for individual paths
+- Customizable rate limits
 - Runs with [fasthttp](https://github.com/vayala/fasthttp) for maximum performance and built-in anti-DoS features
 - Whitelist/blacklist file types, and check them based on their headers, not the extension
 - Sanitize files to prevent against phishing attacks
 - Public/private mode (private by default)
-- Zero-width image URLs that aren't absurdly long
+- Zero-width file IDs in URLs
+- File ID collision checking
 
 ## Setup
 
-Make sure you have a Redis instance set up somewhere.
+Make sure you have a Redis instance set up somewhere; preferably in the same environment as the file hoster.
 
 - Put your config in `conf/` as `config.yml` using `conf/example.yml` as a reference.   
 - Optionally, you can replace `favicon.ico` with your own icon! (It must have the same name)
@@ -25,9 +23,10 @@ Make sure you have a Redis instance set up somewhere.
 
 Now you can choose to either run LoliHost with Docker or as a service on your system.
 
-### Option 1: Run as a systemd service (Recommended)
+### Option 1: systemd/other service manager (Recommended)
 
 - Download the binary to the same directory where `conf/` is located.
+  - Alternatively you can build it.
 - Mark it as executable with `chmod 0744 <binary file>`.
 - Copy `example/lolihost.service` to `/lib/systemd/system` (if it's not there already).
 - Edit the WorkingDirectory and ExecFile to match the locations of the binary file.
@@ -38,14 +37,14 @@ At this point, you can run the program using `systemctl start lolihost`. You can
 If anything goes wrong, you can check `journalctl -u lolihost` and find out what happened.
 
 
-### Option 2: Run with Docker
+### Option 2: Docker
+
+**Note that you will have to attach external volumes yourself should you use this method.**
 
 - Build the image with `docker build -t lolihost .`
 - Make sure to bind the port you choose (default is `3030`) to other ports on your system. Here's an example of how you would run it, after building the image.  
   
 `docker container run -d -p 127.0.0.1:3030:3030 lolihost`  
-
-**Note that you will have to attach external volumes yourself should you use this method.**
 
 ### How to Upload
 
