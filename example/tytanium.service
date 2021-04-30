@@ -1,5 +1,5 @@
 [Unit]
-Description=LoliHost File Host
+Description=Tytanium File Host
 
 [Service]
 Type=simple

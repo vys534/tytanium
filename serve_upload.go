@@ -104,12 +104,11 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 			break
 		}
 		attempts++
-		if attempts >= 10 {
+		if attempts >= b.Config.Server.CollisionCheckAttempts {
 			SendTextResponse(ctx, "Tried too many times to find a valid file ID to use. Consider increasing the ID length.", fasthttp.StatusInternalServerError)
 			return
 		}
 	}
-
 
 	fsFile, err := os.Create(path.Join(b.Config.Storage.Directory, fileName))
 	defer func() {

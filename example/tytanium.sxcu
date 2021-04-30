@@ -1,6 +1,6 @@
 {
   "Version": "13.0.1",
-  "Name": "LoliHost Example Configuration",
+  "Name": "Tytanium Example Configuration",
   "DestinationType": "ImageUploader, TextUploader, FileUploader",
   "RequestMethod": "POST",
   "RequestURL": "https://domain.com/upload",

@@ -1,6 +1,6 @@
-module github.com/vysiondev/lolihost
+module github.com/vysiondev/tytanium
 
-go 1.15
+go 1.16
 
 require (
 	github.com/gabriel-vasile/mimetype v1.1.2

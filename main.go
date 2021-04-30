@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	Version = "1.13.3"
+	Version = "1.13.4"
 )
 
 func main() {
-	log.Print(">> LoliHost " + Version + "\n\n")
+	log.Print(">> Tytanium " + Version + "\n\n")
 
 	viper.SetConfigName("config")
 	viper.AddConfigPath("./conf/")
@@ -33,6 +33,7 @@ func main() {
 	viper.SetDefault("net.redis.db", 0)
 	viper.SetDefault("server.idlen", 5)
 	viper.SetDefault("server.concurrency", 128*4)
+	viper.SetDefault("server.collisioncheckattempts", 3)
 	viper.SetDefault("security.maxsizebytes", 52428800)
 	viper.SetDefault("security.publicmode", false)
 	viper.SetDefault("security.ratelimit.resetafter", 60000)

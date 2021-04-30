@@ -1,5 +1,5 @@
 # EXAMPLE CONFIGURATION
-# Rename this file to "config.yml" before you start LoliHost.
+# Rename this file to "config.yml" before you start Tytanium.
 
 storage:
   # If there is another directory you want to save files to (instead of "files" in the executable's
@@ -50,7 +50,7 @@ security:
       - application/x-sqlite3
       - application/x-object
       - application/x-elf
-    # If this list is populated, then LoliHost will ONLY allow these mime types to be displayed.
+    # If this list is populated, then Tytanium will ONLY allow these mime types to be displayed.
     # If a mime type from this list is also in the sanitize list, it will be sanitized.
     # If a mime type from this list is also in the blacklist, it will be blacklisted anyway.
     # If no values are given, a whitelist will not be set.
@@ -75,6 +75,9 @@ server:
   # How many TOTAL requests the server can handle at once.
   # Requests will not be served to ANYONE if the # of connections everywhere is above this number.
   concurrency: 512
+  # How many times an ID should be checked to see if a duplicate exists.
+  # If 0, and a duplicate ID is generated, the file will not upload.
+  collisioncheckattempts: 3
 
 net:
   redis:
