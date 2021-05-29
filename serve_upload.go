@@ -54,14 +54,13 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	openedFile, e := f.Open()
-	defer func() {
-		_ = openedFile.Close()
-	}()
-
 	if e != nil {
 		SendTextResponse(ctx, "Failed to open file from request: "+e.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
+	defer func() {
+		_ = openedFile.Close()
+	}()
 
 	mimeType, e := mimetype.DetectReader(openedFile)
 	if e != nil {
