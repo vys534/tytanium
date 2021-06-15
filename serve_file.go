@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/httputil/net"
+	"github.com/vysiondev/tytanium/utils"
 	"io"
 	"net/url"
 	"os"
@@ -73,7 +73,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 	}
 
 	if b.Config.Security.BandwidthLimit.Download > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
-		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, fileInfo.Size())
+		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, fileInfo.Size())
 		if err != nil {
 			SendTextResponse(ctx, "There was a problem checking bandwidth limits. "+err.Error(), fasthttp.StatusInternalServerError)
 			return
@@ -97,7 +97,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 			ctx.Response.Header.Add("Pragma", "no-cache")
 			ctx.Response.Header.Add("Expires", "0")
 
-			u := fmt.Sprintf("%s/%s?%s=true", net.GetRoot(ctx), id, rawParam)
+			u := fmt.Sprintf("%s/%s?%s=true", utils.GetRoot(ctx), id, rawParam)
 			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", u, 1))
 			return
 		}

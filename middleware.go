@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/httputil/net"
+	"github.com/vysiondev/tytanium/utils"
 	"strings"
 	"time"
 )
@@ -37,7 +37,7 @@ func (b *BaseHandler) limitPath(h fasthttp.RequestHandler) fasthttp.RequestHandl
 			} else {
 				rlString := ""
 				// Check the global rate limit
-				isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", net.GetIP(ctx)), b.Config.Security.RateLimit.Global, b.Config.Security.RateLimit.ResetAfter, 1)
+				isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", utils.GetIP(ctx)), b.Config.Security.RateLimit.Global, b.Config.Security.RateLimit.ResetAfter, 1)
 				if err != nil {
 					SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 					return
@@ -48,7 +48,7 @@ func (b *BaseHandler) limitPath(h fasthttp.RequestHandler) fasthttp.RequestHandl
 
 				if pathType != LimitGeneralPath {
 					// Check the route exclusive rate limit
-					isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, net.GetIP(ctx)), reqLimit, b.Config.Security.RateLimit.ResetAfter, 1)
+					isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, utils.GetIP(ctx)), reqLimit, b.Config.Security.RateLimit.ResetAfter, 1)
 					if err != nil {
 						SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 						return
