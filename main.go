@@ -65,7 +65,7 @@ func main() {
 		log.Fatalf("Specified storage path is not a directory.")
 	}
 
-	log.Println("Saving files to directory", configuration.Storage.Directory)
+	log.Println("Saving all incoming files to directory", configuration.Storage.Directory)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/httputil/net"
-	"github.com/vysiondev/httputil/rand"
+	"github.com/vysiondev/tytanium/utils"
 	"io"
 	"os"
 	"path"
@@ -42,7 +41,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	f := mp.File[fileHandler][0]
 
 	if b.Config.Security.BandwidthLimit.Upload > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
-		isUploadBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_UP_%s", net.GetIP(ctx)), b.Config.Security.BandwidthLimit.Upload, b.Config.Security.RateLimit.ResetAfter, f.Size)
+		isUploadBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), b.Config.Security.BandwidthLimit.Upload, b.Config.Security.RateLimit.ResetAfter, f.Size)
 		if err != nil {
 			SendTextResponse(ctx, "There was a problem checking bandwidth limits for uploading. "+err.Error(), fasthttp.StatusInternalServerError)
 			return
@@ -54,14 +53,13 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	openedFile, e := f.Open()
-	defer func() {
-		_ = openedFile.Close()
-	}()
-
 	if e != nil {
 		SendTextResponse(ctx, "Failed to open file from request: "+e.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
+	defer func() {
+		_ = openedFile.Close()
+	}()
 
 	mimeType, e := mimetype.DetectReader(openedFile)
 	if e != nil {
@@ -88,7 +86,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 		randomStringChan := make(chan string, 1)
 		go func() {
 			wg.Add(1)
-			rand.RandBytes(b.Config.Server.IDLen, randomStringChan, func() { wg.Done() })
+			utils.RandBytes(b.Config.Server.IDLen, randomStringChan, func() { wg.Done() })
 		}()
 		wg.Wait()
 		fileId := <-randomStringChan
@@ -134,7 +132,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	if string(ctx.QueryArgs().Peek("omitdomain")) == "1" {
 		u = fileName
 	} else {
-		u = fmt.Sprintf("%s/%s", net.GetRoot(ctx), fileName)
+		u = fmt.Sprintf("%s/%s", utils.GetRoot(ctx), fileName)
 	}
 
 	SendTextResponse(ctx, u, fasthttp.StatusOK)

@@ -64,13 +64,13 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 
 	// We don't need a limited reader because mimetype.DetectReader automatically caps it
 	fileReader, e := os.OpenFile(path.Join(b.Config.Storage.Directory, id), os.O_RDONLY, 0644)
-	defer func() {
-		_ = fileReader.Close()
-	}()
 	if e != nil {
 		SendTextResponse(ctx, "There was a problem reading the file. "+e.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
+	defer func() {
+		_ = fileReader.Close()
+	}()
 
 	if b.Config.Security.BandwidthLimit.Download > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
 		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, fileInfo.Size())

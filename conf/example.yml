@@ -33,7 +33,7 @@ security:
     # Wait 5 minutes before resetting the limit.
     resetafter: 300000
     # How many bytes an IP address can download/upload in the above resetafter time.
-    # These default values are downloa 50 MB in 5 minutes or upload 250 MB in 5 minutes.
+    # These default values are download 50 MB in 5 minutes or upload 250 MB in 5 minutes.
     # If they're not specified it will be ignored.
     download: 52428800
     upload: 262144000
@@ -80,6 +80,7 @@ server:
   collisioncheckattempts: 3
 
 net:
+  # Self-explanatory Redis values.
   redis:
     uri:
     password:
