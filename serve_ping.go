@@ -12,7 +12,6 @@ type PingResponse struct {
 
 func (b *BaseHandler) ServePing(ctx *fasthttp.RequestCtx) {
 	SendJSONResponse(ctx, &PingResponse{
-		Public:        b.Config.Security.PublicMode,
 		ServerVersion: Version,
 		MaxSize:       b.Config.Security.MaxSizeBytes,
 	})

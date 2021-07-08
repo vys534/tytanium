@@ -16,7 +16,6 @@ type SecurityConfig struct {
 	MaxSizeBytes   int
 	RateLimit      RateLimitConfig
 	BandwidthLimit BandwidthLimitConfig
-	PublicMode     bool
 	Filter         FilterConfig
 }
 

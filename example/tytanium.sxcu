@@ -1,12 +1,9 @@
 {
-  "Version": "13.0.1",
+  "Version": "13.5.0",
   "Name": "Tytanium Example Configuration",
   "DestinationType": "ImageUploader, TextUploader, FileUploader",
   "RequestMethod": "POST",
-  "RequestURL": "https://domain.com/upload",
-  "Parameters": {
-    "zerowidth": "$prompt:Zero width? (1 for yes)|0$"
-  },
+  "RequestURL": "https://example.com/upload",
   "Headers": {
     "Authorization": "your key here"
   },

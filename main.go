@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
@@ -10,8 +11,11 @@ import (
 	"time"
 )
 
+//go:embed conf/favicon.ico
+var Favicon embed.FS
+
 const (
-	Version = "1.13.6"
+	Version = "1.1.0"
 )
 
 func main() {
@@ -35,7 +39,6 @@ func main() {
 	viper.SetDefault("server.concurrency", 128*4)
 	viper.SetDefault("server.collisioncheckattempts", 3)
 	viper.SetDefault("security.maxsizebytes", 52428800)
-	viper.SetDefault("security.publicmode", false)
 	viper.SetDefault("security.ratelimit.resetafter", 60000)
 	viper.SetDefault("security.bandwidthlimit.resetafter", 60000*5)
 	err := viper.Unmarshal(&configuration)
@@ -44,9 +47,6 @@ func main() {
 	}
 	if len(configuration.Security.MasterKey) == 0 {
 		log.Fatal("A master key MUST be set.")
-	}
-	if configuration.Security.PublicMode {
-		log.Println("** WARNING: Public mode is ENABLED. Authentication will not be required to upload! **")
 	}
 
 	i, err := os.Stat(configuration.Storage.Directory)

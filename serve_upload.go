@@ -21,7 +21,7 @@ func (b *BaseHandler) GetValidFileID() {
 // The file's information will also be inserted into the database.
 func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	auth := b.IsAuthorized(ctx)
-	if !auth && !b.Config.Security.PublicMode {
+	if !auth {
 		return
 	}
 	mp, e := ctx.Request.MultipartForm()
