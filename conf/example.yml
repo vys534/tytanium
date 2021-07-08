@@ -12,9 +12,6 @@ security:
   # There will always be 2048 bytes added on top of this so that the server can respond. If it were 0 bytes,
   # the server would not be able to respond at all LOL
   maxsizebytes: 52428800
-  # Key not required to upload if this is true.
-  # Enable this if you know what you're doing.
-  publicmode: false
   ratelimit:
     # When to reset the limit, in milliseconds.
     # The default value here is 1 minute.

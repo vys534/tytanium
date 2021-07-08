@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"embed"
+	_ "embed"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
@@ -12,7 +12,7 @@ import (
 )
 
 //go:embed conf/favicon.ico
-var Favicon embed.FS
+var Favicon []byte
 
 const (
 	Version = "1.1.0"
