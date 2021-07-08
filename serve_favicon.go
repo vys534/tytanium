@@ -10,6 +10,7 @@ func ServeFavicon(ctx *fasthttp.RequestCtx) {
 	f, e := Favicon.ReadFile("./conf/favicon.ico")
 	if e != nil {
 		ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
+		return
 	}
 	b := bytes.NewBuffer(f)
 	ctx.Response.Header.Set("Content-Type", "image/x-icon")
