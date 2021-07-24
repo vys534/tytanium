@@ -46,7 +46,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 	if strings.HasPrefix(decoded, "%") {
 		id = ZWSToString(id)
 		if len(id) == 0 {
-			SendTextResponse(ctx, "There was a problem converting the path segment to a string.", fasthttp.StatusBadRequest)
+			SendTextResponse(ctx, "The path segment could not be converted to a string. This is an invalid zero-width URL.", fasthttp.StatusBadRequest)
 			return
 		}
 	}
@@ -58,24 +58,24 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 			b.ServeNotFound(ctx)
 			return
 		}
-		SendTextResponse(ctx, "There was a problem calling stat on the file. "+err.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("os.Stat() could not be called on the file. %v", err), fasthttp.StatusInternalServerError)
 		return
 	}
 
 	// We don't need a limited reader because mimetype.DetectReader automatically caps it
 	fileReader, e := os.OpenFile(path.Join(b.Config.Storage.Directory, id), os.O_RDONLY, 0644)
 	if e != nil {
-		SendTextResponse(ctx, "There was a problem reading the file. "+e.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("The file could not be opened. %v", err), fasthttp.StatusInternalServerError)
 		return
 	}
 	defer func() {
 		_ = fileReader.Close()
 	}()
 
-	if b.Config.Security.BandwidthLimit.Download > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
-		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), b.Config.Security.BandwidthLimit.Download, b.Config.Security.RateLimit.ResetAfter, fileInfo.Size())
+	if b.Config.RateLimit.Bandwidth.Download > 0 && b.Config.RateLimit.Bandwidth.ResetAfter > 0 {
+		isBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), b.Config.RateLimit.Bandwidth.Download, b.Config.RateLimit.Bandwidth.ResetAfter, fileInfo.Size())
 		if err != nil {
-			SendTextResponse(ctx, "There was a problem checking bandwidth limits. "+err.Error(), fasthttp.StatusInternalServerError)
+			SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
 			return
 		}
 		if !isBandwidthLimitNotReached {
@@ -86,7 +86,7 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 
 	mimeType, e := mimetype.DetectReader(fileReader)
 	if e != nil {
-		SendTextResponse(ctx, "Cannot detect the mime type of this file retrieved from server. It might be corrupted.", fasthttp.StatusBadRequest)
+		SendTextResponse(ctx, fmt.Sprintf("Cannot detect the mime type of this file retrieved from server. It might be corrupted. %v", e), fasthttp.StatusBadRequest)
 		return
 	}
 
@@ -116,13 +116,13 @@ func (b *BaseHandler) ServeFile(ctx *fasthttp.RequestCtx) {
 
 	_, e = fileReader.Seek(0, io.SeekStart)
 	if e != nil {
-		SendTextResponse(ctx, "Failed to reset the reader to 0.", fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("Reader could not be reset to its initial position. %v", e), fasthttp.StatusInternalServerError)
 		return
 	}
 
 	_, copyErr := io.Copy(ctx.Response.BodyWriter(), fileReader)
 	if copyErr != nil {
-		SendTextResponse(ctx, "Could not write file to client. "+copyErr.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("File wasn't written to the client successfully. %v", copyErr), fasthttp.StatusInternalServerError)
 		return
 	}
 }

@@ -1,84 +1,89 @@
+# -----------------------
 # EXAMPLE CONFIGURATION
-# Rename this file to "config.yml" before you start Tytanium.
+# -----------------------
 
-storage:
+# Rename this file to "config2.yml" before you start Tytanium,
+# or copy the contents of this file to a file named "config2.yml"
+# that you made beforehand.
+
+storage: # Configure options relating to file storage.
   # If there is another directory you want to save files to (instead of "files" in the executable's
   # directory), then specify an absolute path here.
   directory:
-security:
-  # The key to upload.
-  masterkey:
-  # Max size (in bytes) a file can be. This is 50 MiB.
+  # The size (in bytes) a file can be. This is 50 MiB.
   # There will always be 2048 bytes added on top of this so that the server can respond. If it were 0 bytes,
   # the server would not be able to respond at all LOL
-  maxsizebytes: 52428800
-  ratelimit:
-    # When to reset the limit, in milliseconds.
-    # The default value here is 1 minute.
-    resetafter: 60000
-    # Handles /upload path alone.
-    # This default value, for example, allows 10 uploads per minute.
-    # If not specified there will be no rate limit for the upload path.
-    upload: 10
-    # This is the GLOBAL rate limit.
-    # All requests to the server are limited to this number, per minute.
-    # If a per-route rate limit exceeds this number it will be overridden by this number.
-    # If not specified a rate limit will not exist.
-    global: 20
-  bandwidthlimit:
-    # When to reset the limit, in milliseconds.
-    # Wait 5 minutes before resetting the limit.
-    resetafter: 300000
-    # How many bytes an IP address can download/upload in the above resetafter time.
-    # These default values are download 50 MB in 5 minutes or upload 250 MB in 5 minutes.
-    # If they're not specified it will be ignored.
-    download: 52428800
-    upload: 262144000
-  # A subset of mime type lists which change how files can be displayed.
-  filter:
-    # A list of mime types to block from loading completely.
-    # If no values are given, a blacklist will not be set.
-    # This default list blocks unknown file types and unwanted files (typically), mainly applications.
-    blacklist:
-      - application/octet-stream
-      - application/vnd.microsoft.portable-executable
-      - application/x-msdos-program
-      - application/x-executable
-      - application/x-sqlite3
-      - application/x-object
-      - application/x-elf
-    # If this list is populated, then Tytanium will ONLY allow these mime types to be displayed.
-    # If a mime type from this list is also in the sanitize list, it will be sanitized.
-    # If a mime type from this list is also in the blacklist, it will be blacklisted anyway.
-    # If no values are given, a whitelist will not be set.
-    whitelist:
-    # A list of mime types to render as text/plain. Effective against documents like HTML to prevent phishing.
-    # If no values are given, no mime types will be sanitized.
-    sanitize:
-      - text/html
-      - text/x-php
-      - application/javascript
-      - application/x-python
-      - text/x-lua
-      - text/x-perl
-
-server:
-  # What port to listen on. Default is 3030
-  port: 3030
-  # ID length to use. (e.g: xxxxx.png has an ID length of 5)
-  # If an ID collision occurs the most recent file will override.
-  # This default value gives 62^8 possible values, and should be good enough.
+  maxsize: 52428800
+  # The ID length to use. (e.g: xxxxx.png has an ID length of 5).
+  # IDs are composed of alphanumeric characters only (A-Z, a-z, 0-9).
+  # This default value gives 62^8 possible values, and should be good enough for most settings.
   idlen: 8
-  # How many TOTAL requests the server can handle at once.
-  # Requests will not be served to ANYONE if the # of connections everywhere is above this number.
-  concurrency: 512
   # How many times an ID should be checked to see if a duplicate exists.
-  # If 0, and a duplicate ID is generated, the file will not upload.
   collisioncheckattempts: 3
 
-net:
-  # Self-explanatory Redis values.
-  redis:
-    uri:
-    password:
-    db: 0
+ratelimit: # Limit the amount of requests users are allowed to make.
+  # When to reset the rate limit imposed on a user, in milliseconds. The default value here is 1 minute.
+  resetafter: 60000
+  # Handles the /upload path alone. This means that the rate limit for this path is exclusive to the path only.
+  # This default value, for example, allows 10 uploads per minute. If it is exceeded, the user can still access
+  # the rest of the site, but will not be allowed to upload until the rate limit is reset.
+  # If not specified there will be no rate limit for the upload path.
+  upload: 10
+  # This is the GLOBAL rate limit.
+  # All requests to the server are limited to this number, per minute.
+  # If a per-route rate limit exceeds this number it will be overridden by this number.
+  # If not specified a rate limit will not exist.
+  global: 20
+  bandwidth: # Limit the amount of data IPs can download/upload.
+    # When to reset the limit, in milliseconds. This default value is 5 minutes.
+    resetafter: 300000
+    # How many bytes an IP address can download/upload in the allotted time frame (specified by resetafter).
+    # These default values are download 50 MB in 5 minutes or upload 250 MB in 5 minutes.
+    # If they are not specified there will be no restrictions on bandwidth.
+    download: 52428800
+    upload: 262144000
+
+filter: # Configure which file types are allowed to be uploaded.
+  # A list of mime types to block from loading completely.
+  # If no values are given, a blacklist will not be set.
+  # This default list blocks unknown file types and unwanted files (typically), mainly applications.
+  blacklist:
+    - application/octet-stream
+    - application/vnd.microsoft.portable-executable
+    - application/x-msdos-program
+    - application/x-executable
+    - application/x-sqlite3
+    - application/x-object
+    - application/x-elf
+  # If this list is populated, then Tytanium will ONLY allow these mime types to be displayed.
+  # If a mime type from this list is also in the sanitize list, it will be sanitized.
+  # If a mime type from this list is also in the blacklist, it will be blacklisted anyway.
+  # If no values are given, a whitelist will not be set.
+  whitelist:
+  # A list of mime types to render as text/plain. Effective against documents like HTML to prevent phishing.
+  # If no values are given, no mime types will be sanitized. It is highly recommended you at least keep text/html.
+  sanitize:
+    - text/html
+    - text/x-php
+    - application/javascript
+    - application/x-python
+    - text/x-lua
+    - text/x-perl
+
+security: # Options relating to security and authorization.
+  # The key to upload. Do not share it with people you do not know and trust.
+  masterkey:
+
+server: # Configure the way the HTTP server runs.
+  # What port to listen on. The default is 3030.
+  port:
+  # How many TOTAL requests the server can handle at once.
+  # Requests will not be served to ANYONE if the # of simultaneous connections is above this number.
+  concurrency: 512
+
+redis: # Configure the Redis connection.
+  uri:
+  password:
+  db: 0
+
+morestats: # A boolean for if you want to have /stats show more data, including memory usage.

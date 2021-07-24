@@ -8,6 +8,9 @@ import (
 	"github.com/valyala/fasthttp"
 	"log"
 	"os"
+	"os/signal"
+	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -15,7 +18,7 @@ import (
 var Favicon []byte
 
 const (
-	Version = "1.1.0"
+	Version = "1.2.0"
 )
 
 func main() {
@@ -28,19 +31,25 @@ func main() {
 	var configuration Configuration
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file, %s", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Fatalf("No config file set: %v", err)
+		} else {
+			log.Fatalf("Error reading config file: %v", err)
+		}
 	}
 
 	// Set undefined variables
 	viper.SetDefault("storage.directory", "files")
-	viper.SetDefault("server.port", "3030")
-	viper.SetDefault("net.redis.db", 0)
-	viper.SetDefault("server.idlen", 5)
+	viper.SetDefault("storage.idlen", 5)
+	viper.SetDefault("storage.collisioncheckattempts", 3)
+	viper.SetDefault("server.port", 3030)
 	viper.SetDefault("server.concurrency", 128*4)
-	viper.SetDefault("server.collisioncheckattempts", 3)
-	viper.SetDefault("security.maxsizebytes", 52428800)
-	viper.SetDefault("security.ratelimit.resetafter", 60000)
-	viper.SetDefault("security.bandwidthlimit.resetafter", 60000*5)
+	viper.SetDefault("ratelimit.resetafter", 60000)
+	viper.SetDefault("ratelimit.bandwidth.resetafter", 60000*5)
+	viper.SetDefault("security.maxsize", 52428800)
+	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("morestats", false)
+
 	err := viper.Unmarshal(&configuration)
 	if err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)
@@ -66,19 +75,20 @@ func main() {
 	}
 
 	log.Println("Saving all incoming files to directory", configuration.Storage.Directory)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     configuration.Net.Redis.URI,
-		Password: configuration.Net.Redis.Password,
-		DB:       configuration.Net.Redis.Db,
+		Addr:     configuration.Redis.URI,
+		Password: configuration.Redis.Password,
+		DB:       int(configuration.Redis.Db),
 	})
 
 	status := redisClient.Ping(ctx).Err()
 	if status != nil {
-		log.Fatal("Could not ping Redis database: " + status.Error())
+		cancel()
+		log.Fatalf("Could not ping Redis database, %v", status.Error())
 	}
+	cancel()
 	log.Println("Redis connection established")
 
 	b := NewBaseHandler(redisClient, configuration)
@@ -88,13 +98,12 @@ func main() {
 		Handler:                       handleCORS(b.limitPath(b.handleHTTPRequest)),
 		HeaderReceived:                nil,
 		ContinueHandler:               nil,
-		Concurrency:                   configuration.Server.Concurrency,
+		Concurrency:                   int(configuration.Server.Concurrency),
 		DisableKeepalive:              false,
-		ReadTimeout:                   30 * time.Minute,
-		WriteTimeout:                  30 * time.Minute,
+		ReadTimeout:                   3 * time.Second,
 		TCPKeepalive:                  false,
 		TCPKeepalivePeriod:            0,
-		MaxRequestBodySize:            configuration.Security.MaxSizeBytes + 2048,
+		MaxRequestBodySize:            int(configuration.Storage.MaxSize) + 2048,
 		ReduceMemoryUsage:             false,
 		GetOnly:                       false,
 		DisablePreParseMultipartForm:  false,
@@ -106,9 +115,44 @@ func main() {
 		KeepHijackedConns:             false,
 	}
 
-	log.Println(">> Listening for new requests on port " + b.Config.Server.Port)
-	if err = s.ListenAndServe(":" + b.Config.Server.Port); err != nil {
-		log.Fatalf("Listen error: %s\n", err)
+	portAsString := strconv.Itoa(int(b.Config.Server.Port))
+	log.Println("Will listen for new requests on port " + portAsString)
+
+	stop := make(chan os.Signal)
+	signal.Notify(stop, os.Interrupt)
+
+	go func() {
+		if err = s.ListenAndServe(":" + portAsString); err != nil {
+			log.Fatalf("Listen error: %v\n", err)
+		}
+	}()
+
+	if b.Config.MoreStats {
+		// collect stats every 30 seconds
+		go func() {
+			for {
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				e := redisClient.Set(ctx, "ty_mem_usage", m.Alloc, 0).Err()
+				if e != nil {
+					log.Printf("Failed to write metrics! %v", e)
+				}
+				cancel()
+
+				time.Sleep(time.Second * 30)
+			}
+		}()
 	}
 
+	<-stop
+	log.Println("Shutting down")
+
+	if err := s.Shutdown(); err != nil {
+		log.Fatalf("Failed to shutdown gracefully: %v\n", err)
+	}
+
+	log.Println("Shut down")
+	os.Exit(0)
 }

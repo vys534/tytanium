@@ -21,24 +21,24 @@ const (
 func (b *BaseHandler) limitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		ip := utils.GetIP(ctx)
-		if b.Config.Security.RateLimit.ResetAfter <= 0 {
+		if b.Config.RateLimit.ResetAfter <= 0 {
 			h(ctx)
 		} else {
 			p := string(ctx.Request.URI().Path())
 			pathType := LimitGeneralPath
-			reqLimit := b.Config.Security.RateLimit.Global
+			reqLimit := b.Config.RateLimit.Global
 
 			switch strings.ToLower(p) {
 			case "/upload":
 				pathType = LimitUploadPath
-				reqLimit = b.Config.Security.RateLimit.Upload
+				reqLimit = b.Config.RateLimit.Upload
 			}
 			if reqLimit <= 0 {
 				h(ctx)
 			} else {
 				rlString := ""
 				// Check the global rate limit
-				isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", ip), b.Config.Security.RateLimit.Global, b.Config.Security.RateLimit.ResetAfter, 1)
+				isGlobalRateLimitOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("G_%s", ip), b.Config.RateLimit.Global, b.Config.RateLimit.ResetAfter, 1)
 				if err != nil {
 					SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 					return
@@ -49,7 +49,7 @@ func (b *BaseHandler) limitPath(h fasthttp.RequestHandler) fasthttp.RequestHandl
 
 				if pathType != LimitGeneralPath {
 					// Check the route exclusive rate limit
-					isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, ip), reqLimit, b.Config.Security.RateLimit.ResetAfter, 1)
+					isPathOk, err := Try(ctx, b.RedisClient, fmt.Sprintf("%d_%s", pathType, ip), reqLimit, b.Config.RateLimit.ResetAfter, 1)
 					if err != nil {
 						SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 						return
@@ -91,11 +91,11 @@ func (b *BaseHandler) handleHTTPRequest(ctx *fasthttp.RequestCtx) {
 	case "/favicon.ico":
 		ServeFavicon(ctx)
 		break
-	case "/checkauth":
-		b.ServeCheckAuth(ctx)
+	case "/check_auth":
+		b.ServeAuthCheck(ctx)
 		break
-	case "/ping":
-		b.ServePing(ctx)
+	case "/stats":
+		b.ServeStats(ctx)
 		break
 	default:
 		if !ctx.IsGet() {

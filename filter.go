@@ -18,15 +18,15 @@ const (
 // FilterFail means a response was already returned, and the caller should terminate its function.
 // FilterSanitize means the file's Content-Type header returned to the client should be changed to text/plain.
 func (b *BaseHandler) FilterCheck(ctx *fasthttp.RequestCtx, mimeType string) FilterStatus {
-	if len(b.Config.Security.Filter.Blacklist) > 0 && mimetype.EqualsAny(mimeType, b.Config.Security.Filter.Blacklist...) {
+	if len(b.Config.Filter.Blacklist) > 0 && mimetype.EqualsAny(mimeType, b.Config.Filter.Blacklist...) {
 		SendTextResponse(ctx, "File type is blacklisted.", fasthttp.StatusBadRequest)
 		return FilterFail
 	}
-	if len(b.Config.Security.Filter.Whitelist) > 0 && !mimetype.EqualsAny(mimeType, b.Config.Security.Filter.Whitelist...) {
+	if len(b.Config.Filter.Whitelist) > 0 && !mimetype.EqualsAny(mimeType, b.Config.Filter.Whitelist...) {
 		SendTextResponse(ctx, "File type is not whitelisted.", fasthttp.StatusBadRequest)
 		return FilterFail
 	}
-	if len(b.Config.Security.Filter.Sanitize) > 0 && mimetype.EqualsAny(mimeType, b.Config.Security.Filter.Sanitize...) {
+	if len(b.Config.Filter.Sanitize) > 0 && mimetype.EqualsAny(mimeType, b.Config.Filter.Sanitize...) {
 		return FilterSanitize
 	}
 	return FilterPass

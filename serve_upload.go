@@ -13,10 +13,6 @@ import (
 
 const fileHandler = "file"
 
-func (b *BaseHandler) GetValidFileID() {
-
-}
-
 // ServeUpload handles all incoming POST requests to /upload. It will take a multipart form, parse the file, then write it to disk.
 // The file's information will also be inserted into the database.
 func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
@@ -27,23 +23,23 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	mp, e := ctx.Request.MultipartForm()
 	if e != nil {
 		if e == fasthttp.ErrNoMultipartForm {
-			SendTextResponse(ctx, "Multipart form not sent.", fasthttp.StatusBadRequest)
+			SendTextResponse(ctx, "You didn't send a multipart form.", fasthttp.StatusBadRequest)
 			return
 		}
-		SendTextResponse(ctx, "There was a problem parsing the form. "+e.Error(), fasthttp.StatusBadRequest)
+		SendTextResponse(ctx, fmt.Sprintf("The form couldn't be parsed. %v", e), fasthttp.StatusBadRequest)
 		return
 	}
 	defer ctx.Request.RemoveMultipartFormFiles()
 	if len(mp.File[fileHandler]) == 0 {
-		SendTextResponse(ctx, "No files were uploaded.", fasthttp.StatusBadRequest)
+		SendTextResponse(ctx, "No files were sent.", fasthttp.StatusBadRequest)
 		return
 	}
 	f := mp.File[fileHandler][0]
 
-	if b.Config.Security.BandwidthLimit.Upload > 0 && b.Config.Security.BandwidthLimit.ResetAfter > 0 {
-		isUploadBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), b.Config.Security.BandwidthLimit.Upload, b.Config.Security.RateLimit.ResetAfter, f.Size)
+	if b.Config.RateLimit.Bandwidth.Upload > 0 && b.Config.RateLimit.Bandwidth.ResetAfter > 0 {
+		isUploadBandwidthLimitNotReached, err := Try(ctx, b.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), b.Config.RateLimit.Bandwidth.Upload, b.Config.RateLimit.Bandwidth.ResetAfter, f.Size)
 		if err != nil {
-			SendTextResponse(ctx, "There was a problem checking bandwidth limits for uploading. "+err.Error(), fasthttp.StatusInternalServerError)
+			SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
 			return
 		}
 		if !isUploadBandwidthLimitNotReached {
@@ -54,7 +50,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 
 	openedFile, e := f.Open()
 	if e != nil {
-		SendTextResponse(ctx, "Failed to open file from request: "+e.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("File failed to open. %v", e), fasthttp.StatusInternalServerError)
 		return
 	}
 	defer func() {
@@ -73,7 +69,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 	_, e = openedFile.Seek(0, io.SeekStart)
 	if e != nil {
-		SendTextResponse(ctx, "Failed to reset the reader to 0.", fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("Reader could not be reset to its initial position. %v", e), fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -86,7 +82,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 		randomStringChan := make(chan string, 1)
 		go func() {
 			wg.Add(1)
-			utils.RandBytes(b.Config.Server.IDLen, randomStringChan, func() { wg.Done() })
+			utils.RandBytes(int(b.Config.Storage.IDLen), randomStringChan, func() { wg.Done() })
 		}()
 		wg.Wait()
 		fileId := <-randomStringChan
@@ -94,7 +90,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 
 		i, e := os.Stat(path.Join(b.Config.Storage.Directory, fileName))
 		if e != nil {
-			if os.IsNotExist(e) {
+			if os.IsNotExist(e) || e == os.ErrNotExist {
 				break
 			}
 		}
@@ -102,7 +98,7 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 			break
 		}
 		attempts++
-		if attempts >= b.Config.Server.CollisionCheckAttempts {
+		if attempts >= int(b.Config.Storage.CollisionCheckAttempts) {
 			SendTextResponse(ctx, "Tried too many times to find a valid file ID to use. Consider increasing the ID length.", fasthttp.StatusInternalServerError)
 			return
 		}
@@ -114,13 +110,17 @@ func (b *BaseHandler) ServeUpload(ctx *fasthttp.RequestCtx) {
 	}()
 
 	if err != nil {
-		SendTextResponse(ctx, "There was a problem creating this file. "+err.Error(), fasthttp.StatusInternalServerError)
+		if err == os.ErrPermission {
+			SendTextResponse(ctx, fmt.Sprintf("Permission to create a file was denied. %v", err), fasthttp.StatusInternalServerError)
+			return
+		}
+		SendTextResponse(ctx, fmt.Sprintf("Could not create the file. %v", err), fasthttp.StatusInternalServerError)
 		return
 	}
 
 	_, writeErr := io.Copy(fsFile, openedFile)
 	if writeErr != nil {
-		SendTextResponse(ctx, "There was a problem writing this file to disk. "+writeErr.Error(), fasthttp.StatusInternalServerError)
+		SendTextResponse(ctx, fmt.Sprintf("The file failed to write to disk. %v", e), fasthttp.StatusInternalServerError)
 		return
 	}
 

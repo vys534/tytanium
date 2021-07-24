@@ -4,8 +4,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// ServeCheckAuth validates either the standard or master key.
-func (b *BaseHandler) ServeCheckAuth(ctx *fasthttp.RequestCtx) {
+// ServeAuthCheck validates either the master key.
+func (b *BaseHandler) ServeAuthCheck(ctx *fasthttp.RequestCtx) {
 	if !b.IsAuthorized(ctx) {
 		return
 	}
