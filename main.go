@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	_ "embed"
-	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
 	"github.com/vysiondev/tytanium/global"
 	"github.com/vysiondev/tytanium/middleware"
@@ -16,13 +15,6 @@ import (
 )
 
 func main() {
-	log.Print("* Tytanium " + global.Version + "\n\n")
-
-	viper.SetConfigName("config")
-	viper.AddConfigPath("./conf/")
-	viper.AutomaticEnv()
-	viper.SetConfigType("yml")
-
 	s := &fasthttp.Server{
 		ErrorHandler:                  nil,
 		Handler:                       middleware.HandleCORS(middleware.LimitPath(middleware.HandleHTTPRequest)),

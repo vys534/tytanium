@@ -16,6 +16,7 @@ const (
 )
 
 func init() {
+	log.Print("* Tytanium " + global.Version + "\n\n")
 	initConfiguration()
 	checkStorage()
 	initRedis()
@@ -80,20 +81,20 @@ func checkStorage() {
 }
 
 func initRedis() {
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	redisClient := redis.NewClient(&redis.Options{
+	global.RedisClient = redis.NewClient(&redis.Options{
 		Addr:     global.Configuration.Redis.URI,
 		Password: global.Configuration.Redis.Password,
 		DB:       int(global.Configuration.Redis.DB),
 	})
 
-	status := redisClient.Ping(ctx).Err()
+	status := global.RedisClient.Ping(ctx).Err()
 	if status != nil {
 		cancel()
 		log.Fatalf("Could not ping Redis database, %v", status.Error())
 	}
 	cancel()
+
 	log.Println("Redis connection established")
 }
