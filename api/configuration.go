@@ -1,5 +1,6 @@
-package main
+package api
 
+// Configuration is the configuration structure used by the program.
 type Configuration struct {
 	Storage   storageConfig
 	RateLimit rateLimitConfig
@@ -13,15 +14,17 @@ type Configuration struct {
 type storageConfig struct {
 	Directory              string
 	MaxSize                int64
-	IDLen                  int64
+	IDLength               int64
 	CollisionCheckAttempts int64
 }
 
 type rateLimitConfig struct {
 	ResetAfter int64
-	Upload     int64
-	Global     int64
-	Bandwidth  rateLimitBandwidthConfig
+	Path       struct {
+		Upload int64
+		Global int64
+	}
+	Bandwidth rateLimitBandwidthConfig
 }
 
 type rateLimitBandwidthConfig struct {
@@ -37,7 +40,8 @@ type filterConfig struct {
 }
 
 type securityConfig struct {
-	MasterKey string
+	MasterKey                    string
+	DisableEmptyMasterKeyWarning bool
 }
 
 type serverConfig struct {
@@ -48,5 +52,5 @@ type serverConfig struct {
 type redisConfig struct {
 	URI      string
 	Password string
-	Db       int64
+	DB       int64
 }
