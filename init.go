@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	mebibyte = 2 ^ 20
+	mebibyte = 1 << 20
 	minute   = 60000
 )
 
