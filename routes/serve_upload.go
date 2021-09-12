@@ -29,7 +29,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 			response.SendTextResponse(ctx, "No multipart form was in the request.", fasthttp.StatusBadRequest)
 			return
 		}
-		response.SendTextResponse(ctx, fmt.Sprintf("The form couldn't be parsed. %v", e), fasthttp.StatusBadRequest)
+		response.SendTextResponse(ctx, fmt.Sprintf("The multipart form couldn't be parsed. %v", e), fasthttp.StatusBadRequest)
 		return
 	}
 	defer ctx.Request.RemoveMultipartFormFiles()
@@ -68,8 +68,10 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 
 	status := security.FilterCheck(ctx, mimeType.String())
 	if status == security.FilterFail {
+		// response already sent if filter check failed, so no need to send anything here
 		return
 	}
+
 	_, e = openedFile.Seek(0, io.SeekStart)
 	if e != nil {
 		response.SendTextResponse(ctx, fmt.Sprintf("Reader could not be reset to its initial position. %v", e), fasthttp.StatusInternalServerError)
@@ -127,7 +129,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
+	if global.Configuration.ForceZeroWidth || string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
 		fileName = utils.StringToZWS(fileName)
 	}
 

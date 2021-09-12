@@ -16,6 +16,7 @@ const (
 var src = rand.NewSource(time.Now().UnixNano())
 
 // RandBytes gets a set of random bytes. Useful for random strings
+// note: i have no idea where i found this code lol but whatever
 func RandBytes(n int, c chan<- string, onExit func()) {
 	defer onExit()
 	b := make([]byte, n)

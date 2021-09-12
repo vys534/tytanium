@@ -9,7 +9,6 @@ import (
 	"github.com/vysiondev/tytanium/security"
 	"github.com/vysiondev/tytanium/utils"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -40,24 +39,19 @@ var (
 // ServeFile will serve the / endpoint. It gets the "id" variable from mux and tries to find the file's information in the database.
 // If an ID is either not provided or not found, the function hands the request off to ServeNotFound.
 func ServeFile(ctx *fasthttp.RequestCtx) {
-	id := string(ctx.Request.URI().LastPathSegment())
-	if len(id) == 0 {
+	p := string(ctx.Request.URI().Path())
+	if len(p) == 0 {
 		ServeNotFound(ctx)
 		return
 	}
-	decoded := url.QueryEscape(id)
 
-	// Most likely a zero-with URL but we can check for that
-	if strings.HasPrefix(decoded, "%") {
-		id = utils.ZWSToString(id)
-		if len(id) == 0 {
-			response.SendTextResponse(ctx, "The path segment could not be converted to a string. This is an invalid zero-width URL.", fasthttp.StatusBadRequest)
-			return
-		}
-	}
+	// Convert all zero-width characters to normal string
+	p = utils.ZWSToString(p)
+
+	filePath := path.Join(global.Configuration.Storage.Directory, p)
 
 	// we only need to know if it exists or not
-	fileInfo, err := os.Stat(path.Join(global.Configuration.Storage.Directory, id))
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			ServeNotFound(ctx)
@@ -67,8 +61,13 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	if fileInfo.IsDir() {
+		response.SendTextResponse(ctx, "This is a directory, not a file", fasthttp.StatusBadRequest)
+		return
+	}
+
 	// We don't need a limited reader because mimetype.DetectReader automatically caps it
-	fileReader, e := os.OpenFile(path.Join(global.Configuration.Storage.Directory, id), os.O_RDONLY, 0644)
+	fileReader, e := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if e != nil {
 		response.SendTextResponse(ctx, fmt.Sprintf("The file could not be opened. %v", err), fasthttp.StatusInternalServerError)
 		return
@@ -102,7 +101,7 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 			ctx.Response.Header.Add("Pragma", "no-cache")
 			ctx.Response.Header.Add("Expires", "0")
 
-			u := fmt.Sprintf("%s/%s?%s=true", utils.GetServerRoot(ctx), id, rawParam)
+			u := fmt.Sprintf("%s/%s?%s=true", utils.GetServerRoot(ctx), p, rawParam)
 			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", u, 1))
 			return
 		}
@@ -110,13 +109,14 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 
 	filterStatus := security.FilterCheck(ctx, mimeType.String())
 	if filterStatus == security.FilterFail {
+		// already sent a response if filter check failed
 		return
 	} else if filterStatus == security.FilterSanitize {
 		ctx.Response.Header.Set("Content-Type", "text/plain")
 	} else {
 		ctx.Response.Header.Set("Content-Type", mimeType.String())
 	}
-	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", id))
+	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", p))
 	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 
 	_, e = fileReader.Seek(0, io.SeekStart)

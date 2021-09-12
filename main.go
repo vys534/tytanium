@@ -16,7 +16,8 @@ import (
 
 func main() {
 	s := &fasthttp.Server{
-		ErrorHandler:                  nil,
+		ErrorHandler: nil,
+		// yo what da fuck
 		Handler:                       middleware.HandleCORS(middleware.LimitPath(middleware.HandleHTTPRequest)),
 		HeaderReceived:                nil,
 		ContinueHandler:               nil,

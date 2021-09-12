@@ -1,8 +1,6 @@
 package utils
 
-import (
-	"strings"
-)
+import "strings"
 
 // hey yeah if it works and its stupid it aint stupid
 const characterIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789."
@@ -24,8 +22,7 @@ var (
 		"\U000E005F", "\U000E0038", "\U000E003A", "\U000E002F",
 		"\U000E005A", "\U000E0020", "\U000E0042", "\U000E0033",
 		"\U000E0036", "\U000E004A", "\U000E0022", "\U000E0045",
-		"\U000E0032", "\U000E002C", "\U000E0029", "\U000E0025",
-		"\U000E004C",
+		"\U000E0032", "\U000E002C", "\U000E0029",
 	}
 )
 
@@ -55,7 +52,7 @@ func ZWSToString(encodedStr string) string {
 	rL := []rune(encodedStr)
 	var finalStr string
 
-	for _, r := range rL {
+	for ind, r := range rL {
 		match := false
 		for i, v := range characterReference {
 			if []rune(v)[0] == r {
@@ -65,7 +62,7 @@ func ZWSToString(encodedStr string) string {
 			}
 		}
 		if !match {
-			return ""
+			finalStr += string(encodedStr[ind])
 		}
 	}
 

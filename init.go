@@ -48,7 +48,7 @@ func initConfiguration() {
 	viper.SetDefault("RateLimit.Bandwidth.Upload", 1000*mebibyte)
 
 	viper.SetDefault("Server.Port", 3030)
-	viper.SetDefault("server.concurrency", 128*4)
+	viper.SetDefault("Server.Concurrency", 128*4)
 
 	err := viper.Unmarshal(&global.Configuration)
 	if err != nil {

@@ -2,13 +2,14 @@ package api
 
 // Configuration is the configuration structure used by the program.
 type Configuration struct {
-	Storage   storageConfig
-	RateLimit rateLimitConfig
-	Filter    filterConfig
-	Security  securityConfig
-	Server    serverConfig
-	Redis     redisConfig
-	MoreStats bool
+	Storage        storageConfig
+	RateLimit      rateLimitConfig
+	Filter         filterConfig
+	Security       securityConfig
+	Server         serverConfig
+	Redis          redisConfig
+	MoreStats      bool
+	ForceZeroWidth bool
 }
 
 type storageConfig struct {

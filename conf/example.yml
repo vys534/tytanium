@@ -89,3 +89,7 @@ Redis: # Configure the Redis connection. The values in this section are self-exp
 
 # A boolean. Set this value to true if you want to have /stats show more data, including memory usage.
 MoreStats:
+
+# A boolean. Set this value to true if zero width URLs will always be used, regardless of whether the user sets
+# the zerowidth parameter in the request URL to 0 or not.
+ForceZeroWidth:
