@@ -9,6 +9,7 @@ import (
 	"github.com/vysiondev/tytanium/security"
 	"github.com/vysiondev/tytanium/utils"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -44,9 +45,11 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		ServeNotFound(ctx)
 		return
 	}
-
-	// Convert all zero-width characters to normal string
-	p = utils.ZWSToString(p)
+	// Convert entire path to normal string if a zero-width character is detected at the beginning.
+	// %2F = /, %F3%A0 = part of zero width character
+	if strings.HasPrefix(url.QueryEscape(p), "%2F%F3%A0") {
+		p = utils.ZWSToString(p)
+	}
 
 	filePath := path.Join(global.Configuration.Storage.Directory, p)
 

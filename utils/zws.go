@@ -1,6 +1,9 @@
 package utils
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // hey yeah if it works and its stupid it aint stupid
 const characterIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789."
@@ -50,6 +53,7 @@ func StringToZWS(baseStr string) string {
 func ZWSToString(encodedStr string) string {
 
 	rL := []rune(encodedStr)
+	fmt.Println(len(rL))
 	var finalStr string
 
 	for ind, r := range rL {
@@ -62,7 +66,7 @@ func ZWSToString(encodedStr string) string {
 			}
 		}
 		if !match {
-			finalStr += string(encodedStr[ind])
+			finalStr += string(rL[ind])
 		}
 	}
 
