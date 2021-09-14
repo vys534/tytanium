@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -33,7 +32,7 @@ func GetCharacterIndex(s string) int {
 	return strings.Index(characterIndex, s)
 }
 
-func StringToZWS(baseStr string) string {
+func ZeroWidthCharactersToString(baseStr string) string {
 
 	var completedStr string
 
@@ -50,13 +49,12 @@ func StringToZWS(baseStr string) string {
 }
 
 // what else am i supposed to call it dumbass
-func ZWSToString(encodedStr string) string {
+func StringToZeroWidthCharacters(encodedStr string) string {
 
 	rL := []rune(encodedStr)
-	fmt.Println(len(rL))
 	var finalStr string
 
-	for ind, r := range rL {
+	for _, r := range rL {
 		match := false
 		for i, v := range characterReference {
 			if []rune(v)[0] == r {
@@ -66,7 +64,7 @@ func ZWSToString(encodedStr string) string {
 			}
 		}
 		if !match {
-			finalStr += string(rL[ind])
+			return ""
 		}
 	}
 

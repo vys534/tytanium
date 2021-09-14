@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
 	"github.com/vysiondev/tytanium/response"
 	"github.com/vysiondev/tytanium/security"
 	"github.com/vysiondev/tytanium/utils"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -17,7 +17,10 @@ import (
 	"strings"
 )
 
-const rawParam = "raw"
+const (
+	rawParam                    = "raw"
+	ZeroWidthCharacterFirstByte = 243
+)
 
 // discordHTML represents what is sent back to any client which User-Agent contains the regex contained in
 // discordBotRegex.
@@ -40,15 +43,26 @@ var (
 // ServeFile will serve the / endpoint. It gets the "id" variable from mux and tries to find the file's information in the database.
 // If an ID is either not provided or not found, the function hands the request off to ServeNotFound.
 func ServeFile(ctx *fasthttp.RequestCtx) {
-	p := string(ctx.Request.URI().Path())
-	if len(p) == 0 {
-		ServeNotFound(ctx)
+	pBytes := ctx.Request.URI().Path()
+
+	if len(pBytes) > constants.PathLengthLimitBytes {
+		response.SendTextResponse(ctx, "Path is too long.", fasthttp.StatusBadRequest)
 		return
 	}
+
+	if len(pBytes) <= 1 {
+		response.SendTextResponse(ctx, "Path is too short.", fasthttp.StatusBadRequest)
+		return
+	}
+
+	p := string(pBytes[1:])
 	// Convert entire path to normal string if a zero-width character is detected at the beginning.
-	// %2F = /, %F3%A0 = part of zero width character
-	if strings.HasPrefix(url.QueryEscape(p), "%2F%F3%A0") {
-		p = utils.ZWSToString(p)
+	if pBytes[1] == ZeroWidthCharacterFirstByte {
+		p = utils.StringToZeroWidthCharacters(p)
+		if len(p) == 0 {
+			response.SendTextResponse(ctx, "Malformed zero-width URL path.", fasthttp.StatusBadRequest)
+			return
+		}
 	}
 
 	filePath := path.Join(global.Configuration.Storage.Directory, p)
@@ -80,7 +94,7 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 	}()
 
 	if global.Configuration.RateLimit.Bandwidth.Download > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
-		isBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), global.Configuration.RateLimit.Bandwidth.Download, global.Configuration.RateLimit.Bandwidth.ResetAfter, fileInfo.Size())
+		isBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("BW_DN_%s", utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Download), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), fileInfo.Size())
 		if err != nil {
 			response.SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
 			return

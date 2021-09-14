@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
 	"github.com/vysiondev/tytanium/response"
 	"github.com/vysiondev/tytanium/security"
@@ -40,7 +41,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	f := mp.File[fileHandler][0]
 
 	if global.Configuration.RateLimit.Bandwidth.Upload > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
-		isUploadBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), global.Configuration.RateLimit.Bandwidth.Upload, global.Configuration.RateLimit.Bandwidth.ResetAfter, f.Size)
+		isUploadBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Upload), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), f.Size)
 		if err != nil {
 			response.SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
 			return
@@ -49,6 +50,13 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 			response.SendTextResponse(ctx, "Upload bandwidth limit reached; try again later.", fasthttp.StatusTooManyRequests)
 			return
 		}
+	}
+
+	ext := path.Ext(f.Filename)
+
+	if len(ext) > constants.ExtensionLengthLimit {
+		response.SendTextResponse(ctx, "The file extension is too long.", fasthttp.StatusBadRequest)
+		return
 	}
 
 	openedFile, e := f.Open()
@@ -87,11 +95,12 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 		randomStringChan := make(chan string, 1)
 		go func() {
 			wg.Add(1)
-			utils.RandBytes(int(global.Configuration.Storage.IDLength), randomStringChan, func() { wg.Done() })
+			utils.RandBytes(global.Configuration.Storage.IDLength, randomStringChan, func() { wg.Done() })
 		}()
 		wg.Wait()
 		fileId := <-randomStringChan
-		fileName = fileId + path.Ext(f.Filename)
+
+		fileName = fileId + ext
 
 		i, e := os.Stat(path.Join(global.Configuration.Storage.Directory, fileName))
 		if e != nil {
@@ -103,7 +112,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 			break
 		}
 		attempts++
-		if attempts >= int(global.Configuration.Storage.CollisionCheckAttempts) {
+		if attempts >= global.Configuration.Storage.CollisionCheckAttempts {
 			response.SendTextResponse(ctx, "Tried too many times to find a valid file ID to use. Consider increasing the ID length.", fasthttp.StatusInternalServerError)
 			return
 		}
@@ -130,7 +139,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	if global.Configuration.ForceZeroWidth || string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
-		fileName = utils.StringToZWS(fileName)
+		fileName = utils.ZeroWidthCharactersToString(fileName)
 	}
 
 	var u string

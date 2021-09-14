@@ -10,8 +10,3 @@ var Configuration *api.Configuration
 
 // RedisClient holds the Redis client used to communicate with Redis databases.
 var RedisClient *redis.Client
-
-const (
-	// Version is the current version of the server.
-	Version = "1.3.2"
-)

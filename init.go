@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
 	"log"
 	"os"
@@ -16,7 +17,7 @@ const (
 )
 
 func init() {
-	log.Print("* Tytanium " + global.Version + "\n\n")
+	log.Print("* Tytanium " + constants.Version + "\n\n")
 	initConfiguration()
 	checkStorage()
 	initRedis()
@@ -61,6 +62,12 @@ func initConfiguration() {
 			time.Sleep(time.Second * 5)
 		}
 	}
+
+	// - ID length * 4 bytes,
+	// - extension length limit * 4 bytes,
+	// - 1 byte for the / character,
+	// - 4 bytes for the . character
+	constants.PathLengthLimitBytes = (global.Configuration.Storage.IDLength * 4) + (constants.ExtensionLengthLimit * 4) + 5
 
 	log.Println("Loaded configuration")
 }

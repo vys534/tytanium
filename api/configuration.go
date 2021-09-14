@@ -14,24 +14,24 @@ type Configuration struct {
 
 type storageConfig struct {
 	Directory              string
-	MaxSize                int64
-	IDLength               int64
-	CollisionCheckAttempts int64
+	MaxSize                int
+	IDLength               int
+	CollisionCheckAttempts int
 }
 
 type rateLimitConfig struct {
-	ResetAfter int64
+	ResetAfter int
 	Path       struct {
-		Upload int64
-		Global int64
+		Upload int
+		Global int
 	}
 	Bandwidth rateLimitBandwidthConfig
 }
 
 type rateLimitBandwidthConfig struct {
-	ResetAfter int64
-	Download   int64
-	Upload     int64
+	ResetAfter int
+	Download   int
+	Upload     int
 }
 
 type filterConfig struct {
@@ -46,12 +46,12 @@ type securityConfig struct {
 }
 
 type serverConfig struct {
-	Port        int64
-	Concurrency int64
+	Port        int
+	Concurrency int
 }
 
 type redisConfig struct {
 	URI      string
 	Password string
-	DB       int64
+	DB       int
 }

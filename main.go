@@ -21,7 +21,7 @@ func main() {
 		Handler:                       middleware.HandleCORS(middleware.LimitPath(middleware.HandleHTTPRequest)),
 		HeaderReceived:                nil,
 		ContinueHandler:               nil,
-		Concurrency:                   int(global.Configuration.Server.Concurrency),
+		Concurrency:                   global.Configuration.Server.Concurrency,
 		DisableKeepalive:              false,
 		ReadTimeout:                   3 * time.Second,
 		TCPKeepalive:                  false,

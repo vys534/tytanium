@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/valyala/fasthttp"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
 	"github.com/vysiondev/tytanium/response"
 	"runtime"
@@ -29,7 +30,7 @@ type StatsFromSizeChecker struct {
 // ServeStats serves stats. StatsFromSizeChecker are populated into redis by https://github.com/vysiondev/size-checker.
 func ServeStats(ctx *fasthttp.RequestCtx) {
 	var stats GeneralStats
-	stats.ServerVersion = global.Version
+	stats.ServerVersion = constants.Version
 
 	totalSize, err := getStatValueFromRedis(ctx, global.RedisClient, "sc_total_size")
 	if err != nil {

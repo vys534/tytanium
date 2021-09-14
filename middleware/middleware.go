@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"github.com/valyala/fasthttp"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
 	"github.com/vysiondev/tytanium/response"
 	"github.com/vysiondev/tytanium/routes"
@@ -10,18 +11,6 @@ import (
 	"github.com/vysiondev/tytanium/utils"
 	"strings"
 	"time"
-)
-
-// PathType is an integer representation of what path is currently being handled.
-// Used mainly by LimitPath.
-type PathType int
-
-const (
-	// LimitUploadPath represents /upload.
-	LimitUploadPath PathType = iota
-
-	// LimitGeneralPath represents /general.
-	LimitGeneralPath
 )
 
 // LimitPath generally handles all paths.
@@ -34,12 +23,12 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 			h(ctx)
 		} else {
 			p := string(ctx.Request.URI().Path())
-			pathType := LimitGeneralPath
+			pathType := constants.LimitGeneralPath
 			reqLimit := global.Configuration.RateLimit.Path.Global
 
 			switch strings.ToLower(p) {
 			case "/upload":
-				pathType = LimitUploadPath
+				pathType = constants.LimitUploadPath
 				reqLimit = global.Configuration.RateLimit.Path.Upload
 			}
 			if reqLimit <= 0 {
@@ -47,7 +36,7 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 			} else {
 				rlString := ""
 				// Check the global rate limit
-				isGlobalRateLimitOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("G_%s", ip), global.Configuration.RateLimit.Path.Global, global.Configuration.RateLimit.ResetAfter, 1)
+				isGlobalRateLimitOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("G_%s", ip), int64(global.Configuration.RateLimit.Path.Global), int64(global.Configuration.RateLimit.ResetAfter), 1)
 				if err != nil {
 					response.SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 					return
@@ -56,9 +45,9 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 					rlString = "Global"
 				}
 
-				if pathType != LimitGeneralPath {
+				if pathType != constants.LimitGeneralPath {
 					// Check the route exclusive rate limit
-					isPathOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%d_%s", pathType, ip), reqLimit, global.Configuration.RateLimit.ResetAfter, 1)
+					isPathOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%d_%s", pathType, ip), int64(reqLimit), int64(global.Configuration.RateLimit.ResetAfter), 1)
 					if err != nil {
 						response.SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
 						return
