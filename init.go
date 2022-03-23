@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
+	"github.com/vysiondev/tytanium/logger"
 	"log"
 	"os"
 	"time"
@@ -17,10 +18,12 @@ const (
 )
 
 func init() {
-	log.Print("* Tytanium " + constants.Version + "\n\n")
+	log.Print("⬢ Tytanium secure file host server v" + constants.Version + "\n\n")
 	initConfiguration()
+	initLogger()
 	checkStorage()
 	initRedis()
+	log.Println("[init] Initial checks completed")
 }
 
 func initConfiguration() {
@@ -50,15 +53,22 @@ func initConfiguration() {
 
 	viper.SetDefault("Server.Port", 3030)
 	viper.SetDefault("Server.Concurrency", 128*4)
+	viper.SetDefault("Server.ReadTimeout", 5*minute)
+	viper.SetDefault("Server.WriteTimeout", 5*minute)
+
+	viper.SetDefault("StatsCollectionInterval", 30000)
+
+	viper.SetDefault("Logging.Enabled", true)
+	viper.SetDefault("Logging.LogFile", "log.txt")
 
 	err := viper.Unmarshal(&global.Configuration)
 	if err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)
 	}
 	if len(global.Configuration.Security.MasterKey) == 0 {
-		log.Println("Warning: Security.MasterKey is not set. Anyone on the Internet has permission to upload!")
+		log.Println("Warning: Master key has not set in your configuration. Anyone on the Internet has permission to upload!")
 		if !global.Configuration.Security.DisableEmptyMasterKeyWarning {
-			log.Println("Continuing in 5 seconds... (you can set Security.DisableEmptyMasterKeyWarning to true to disable this)")
+			log.Println("Continuing in 5 seconds... (you can set Security.DisableEmptyMasterKeyWarning to true to disable this in the configuration)")
 			time.Sleep(time.Second * 5)
 		}
 	}
@@ -69,7 +79,22 @@ func initConfiguration() {
 	// - 4 bytes for the . character
 	constants.PathLengthLimitBytes = (global.Configuration.Storage.IDLength * 4) + (constants.ExtensionLengthLimit * 4) + 5
 
-	log.Println("Loaded configuration")
+	log.Println("[init] Loaded configuration")
+}
+
+func initLogger() {
+	if !global.Configuration.Logging.Enabled {
+		return
+	}
+	file, err := os.OpenFile(global.Configuration.Logging.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file! %v", err)
+	}
+
+	logger.InfoLogger = log.New(file, "info:", log.Ldate|log.Ltime|log.Lshortfile)
+	logger.ErrorLogger = log.New(file, "error:", log.Ldate|log.Ltime|log.Lshortfile)
+
+	log.Println("[init] Loggers initialized, output file: " + global.Configuration.Logging.LogFile)
 }
 
 func checkStorage() {
@@ -82,9 +107,9 @@ func checkStorage() {
 		}
 	}
 	if i != nil && !i.IsDir() {
-		log.Fatalf("Specified storage path is not a directory.")
+		log.Fatalf("Specified storage path (%s) is not a directory or not usable.", global.Configuration.Storage.Directory)
 	}
-	log.Println("Storage directory is ok")
+	log.Println("[init] Storage directory is OK")
 }
 
 func initRedis() {
@@ -93,7 +118,7 @@ func initRedis() {
 	global.RedisClient = redis.NewClient(&redis.Options{
 		Addr:     global.Configuration.Redis.URI,
 		Password: global.Configuration.Redis.Password,
-		DB:       int(global.Configuration.Redis.DB),
+		DB:       global.Configuration.Redis.DB,
 	})
 
 	status := global.RedisClient.Ping(ctx).Err()
@@ -103,5 +128,5 @@ func initRedis() {
 	}
 	cancel()
 
-	log.Println("Redis connection established")
+	log.Println("[init] Redis database connection established")
 }

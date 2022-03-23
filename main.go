@@ -4,7 +4,9 @@ import (
 	"context"
 	_ "embed"
 	"github.com/valyala/fasthttp"
+	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
+	"github.com/vysiondev/tytanium/logger"
 	"github.com/vysiondev/tytanium/middleware"
 	"log"
 	"os"
@@ -23,23 +25,28 @@ func main() {
 		ContinueHandler:               nil,
 		Concurrency:                   global.Configuration.Server.Concurrency,
 		DisableKeepalive:              false,
-		ReadTimeout:                   3 * time.Second,
+		ReadTimeout:                   time.Millisecond * time.Duration(global.Configuration.Server.ReadTimeout),
+		WriteTimeout:                  time.Millisecond * time.Duration(global.Configuration.Server.WriteTimeout),
 		TCPKeepalive:                  false,
 		TCPKeepalivePeriod:            0,
-		MaxRequestBodySize:            int(global.Configuration.Storage.MaxSize) + 2048,
+		MaxRequestBodySize:            int(global.Configuration.Storage.MaxSize) + constants.RequestMaxBodySizePadding,
 		ReduceMemoryUsage:             false,
 		GetOnly:                       false,
-		DisablePreParseMultipartForm:  false,
+		DisablePreParseMultipartForm:  true,
 		LogAllErrors:                  false,
 		DisableHeaderNamesNormalizing: false,
-		NoDefaultServerHeader:         false,
-		NoDefaultDate:                 false,
-		NoDefaultContentType:          false,
+		NoDefaultServerHeader:         true,
+		NoDefaultDate:                 true,
+		NoDefaultContentType:          true,
 		KeepHijackedConns:             false,
 	}
 
-	portAsString := strconv.Itoa(int(global.Configuration.Server.Port))
-	log.Println("Will listen for new requests on port " + portAsString)
+	portAsString := strconv.Itoa(global.Configuration.Server.Port)
+	log.Println("Server is listening for new requests on port " + portAsString)
+
+	if global.Configuration.Logging.Enabled {
+		logger.InfoLogger.Println("Server online, port " + portAsString)
+	}
 
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt)
@@ -51,7 +58,7 @@ func main() {
 	}()
 
 	if global.Configuration.MoreStats {
-		// collect stats every 30 seconds
+		// collect stats every n seconds
 		go func() {
 			for {
 				var m runtime.MemStats
@@ -61,21 +68,27 @@ func main() {
 				e := global.RedisClient.Set(ctx, "ty_mem_usage", m.Alloc, 0).Err()
 				if e != nil {
 					log.Printf("Failed to write metrics! %v", e)
+					if global.Configuration.Logging.Enabled {
+						logger.ErrorLogger.Printf("Metrics failed to update: %v", e)
+					}
 				}
 				cancel()
 
-				time.Sleep(time.Second * 30)
+				time.Sleep(time.Millisecond * time.Duration(global.Configuration.StatsCollectionInterval))
 			}
 		}()
 	}
 
 	<-stop
-	log.Println("Shutting down")
+	log.Println("Shutting down, please wait")
+	logger.InfoLogger.Println("Server started graceful shutdown")
 
 	if err := s.Shutdown(); err != nil {
+		logger.ErrorLogger.Printf("Server failed to shut down gracefully: %v", err)
 		log.Fatalf("Failed to shutdown gracefully: %v\n", err)
 	}
 
 	log.Println("Shut down")
+	logger.InfoLogger.Println("Server shut down successfully")
 	os.Exit(0)
 }

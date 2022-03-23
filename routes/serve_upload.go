@@ -6,6 +6,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/vysiondev/tytanium/constants"
 	"github.com/vysiondev/tytanium/global"
+	"github.com/vysiondev/tytanium/logger"
 	"github.com/vysiondev/tytanium/response"
 	"github.com/vysiondev/tytanium/security"
 	"github.com/vysiondev/tytanium/utils"
@@ -41,7 +42,7 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	f := mp.File[fileHandler][0]
 
 	if global.Configuration.RateLimit.Bandwidth.Upload > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
-		isUploadBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("BW_UP_%s", utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Upload), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), f.Size)
+		isUploadBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%s_%s", constants.RateLimitBandwidthUpload, utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Upload), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), f.Size)
 		if err != nil {
 			response.SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
 			return
@@ -136,6 +137,10 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	if writeErr != nil {
 		response.SendTextResponse(ctx, fmt.Sprintf("The file failed to write to disk. %v", e), fasthttp.StatusInternalServerError)
 		return
+	}
+
+	if global.Configuration.Logging.Enabled {
+		logger.InfoLogger.Printf("File %s was created, size: %d", fileName, f.Size)
 	}
 
 	if global.Configuration.ForceZeroWidth || string(ctx.QueryArgs().Peek("zerowidth")) == "1" {

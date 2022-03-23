@@ -10,7 +10,6 @@ import (
 	"github.com/vysiondev/tytanium/security"
 	"github.com/vysiondev/tytanium/utils"
 	"strings"
-	"time"
 )
 
 // LimitPath generally handles all paths.
@@ -32,6 +31,7 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 				reqLimit = global.Configuration.RateLimit.Path.Upload
 			}
 			if reqLimit <= 0 {
+				// skip rate limit check if no request limit/time was defined
 				h(ctx)
 			} else {
 				rlString := ""
@@ -42,7 +42,7 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 					return
 				}
 				if !isGlobalRateLimitOk {
-					rlString = "Global"
+					rlString = "Global path"
 				}
 
 				if pathType != constants.LimitGeneralPath {
@@ -54,11 +54,11 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 					}
 
 					if !isPathOk {
-						rlString = fmt.Sprintf("(path: %d)", pathType)
+						rlString = fmt.Sprintf("Path ID: %d", pathType)
 					}
 				}
 				if len(rlString) > 0 {
-					response.SendTextResponse(ctx, fmt.Sprintf("You are being rate limited. (path: %s)", rlString), fasthttp.StatusTooManyRequests)
+					response.SendTextResponse(ctx, fmt.Sprintf("You are being rate limited. (%s)", rlString), fasthttp.StatusTooManyRequests)
 					return
 				}
 				h(ctx)
@@ -85,11 +85,11 @@ func HandleCORS(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 // HandleHTTPRequest routes HTTP requests to their respective handlers based on the path.
 func HandleHTTPRequest(ctx *fasthttp.RequestCtx) {
 	switch string(ctx.Path()) {
-	case "/upload":
-		fasthttp.TimeoutHandler(routes.ServeUpload, time.Minute*30, "Upload timed out")(ctx)
-		break
 	case "/favicon.ico":
 		routes.ServeFavicon(ctx)
+		break
+	case "/upload":
+		routes.ServeUpload(ctx)
 		break
 	case "/check_auth":
 		routes.ServeAuthCheck(ctx)
@@ -99,10 +99,9 @@ func HandleHTTPRequest(ctx *fasthttp.RequestCtx) {
 		break
 	default:
 		if !ctx.IsGet() {
-			ctx.SetStatusCode(fasthttp.StatusNotFound)
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
 			return
 		}
-		fasthttp.TimeoutHandler(routes.ServeFile, time.Minute*30, "Fetching file timed out")(ctx)
+		routes.ServeFile(ctx)
 	}
-
 }

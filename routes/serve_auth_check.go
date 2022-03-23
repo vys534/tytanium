@@ -2,7 +2,6 @@ package routes
 
 import (
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/response"
 	"github.com/vysiondev/tytanium/security"
 )
 
@@ -11,5 +10,5 @@ func ServeAuthCheck(ctx *fasthttp.RequestCtx) {
 	if !security.IsAuthorized(ctx) {
 		return
 	}
-	response.SendNothing(ctx)
+	ctx.SetStatusCode(fasthttp.StatusOK)
 }
