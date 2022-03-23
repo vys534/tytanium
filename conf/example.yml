@@ -71,16 +71,22 @@ Filter: # Configure which file types are allowed to be uploaded.
     - text/x-perl
 
 Security: # Options relating to security and authorization.
-  # The key to upload. Do not share it with people you do not know and trust.
+  # The key that allows uploading.
   MasterKey:
 
 Server: # Configure the way the HTTP server behaves.
-  # What port to listen on. The default is 3030.
+  # The port to listen on. The default is 3030.
   Port:
   # How many TOTAL requests the server can handle at once.
   # Requests will not be served to ANYONE if the # of simultaneous connections is above this number.
   # It is recommended you keep this value around 512 to avoid issues with high-traffic situations.
   Concurrency:
+  # How long (in milliseconds) the server has to read the request body.
+  # Default is 300000 (5 minutes).
+  ReadTimeout:
+  # How long (in milliseconds) the server has to write a response back to the client.
+  # Default is 300000 (5 minutes).
+  WriteTimeout:
 
 Redis: # Configure the Redis connection. The values in this section are self-explanatory.
   URI:
@@ -89,3 +95,16 @@ Redis: # Configure the Redis connection. The values in this section are self-exp
 
 # A boolean. Set this value to true if you want to have /stats show more data, including memory usage.
 MoreStats:
+
+# Force zero-width URLs, regardless or not if ?zerowidth=1 is specified in the POST request.
+ForceZeroWidth: false
+
+# How often (in milliseconds) the server should update the stats of the server. Default is 30000.
+StatsCollectionInterval:
+
+Logging: # Configure logging behavior.
+  # Should events be logged to a text file in the first place? (Default is true)
+  Enabled:
+
+  # If logging is enabled, where should logs be written to? (Default is "log.txt" file in the project dir)
+  LogFile:

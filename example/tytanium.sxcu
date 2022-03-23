@@ -1,5 +1,5 @@
 {
-  "Version": "13.6.1",
+  "Version": "13.7.0",
   "Name": "Tytanium Example Configuration",
   "DestinationType": "ImageUploader, TextUploader, FileUploader",
   "RequestMethod": "POST",

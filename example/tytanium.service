@@ -4,7 +4,7 @@ Description=Tytanium File Host
 [Service]
 Type=simple
 Restart=always
-RestartSec=5s
+RestartSec=10s
 ExecStart=
 WorkingDirectory=
 
