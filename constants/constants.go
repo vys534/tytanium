@@ -2,7 +2,7 @@ package constants
 
 const (
 	// Version is the current version of the server.
-	Version = "1.3.4"
+	Version = "1.3.41"
 
 	// ExtensionLengthLimit means that file extensions cannot have more characters than the number specified.
 	// file.png has an extension of 4.

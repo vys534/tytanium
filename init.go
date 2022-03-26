@@ -86,7 +86,7 @@ func initLogger() {
 	if !global.Configuration.Logging.Enabled {
 		return
 	}
-	file, err := os.OpenFile(global.Configuration.Logging.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0666)
+	file, err := os.OpenFile(global.Configuration.Logging.LogFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file! %v", err)
 	}
