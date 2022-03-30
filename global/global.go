@@ -2,7 +2,7 @@ package global
 
 import (
 	"github.com/go-redis/redis/v8"
-	"github.com/vysiondev/tytanium/api"
+	"tytanium/api"
 )
 
 // Configuration stores the current configuration for the server and should not be modified as it is not thread safe.

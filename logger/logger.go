@@ -3,6 +3,6 @@ package logger
 import "log"
 
 var (
-	InfoLogger *log.Logger
+	InfoLogger  *log.Logger
 	ErrorLogger *log.Logger
 )
