@@ -12,6 +12,12 @@ type Configuration struct {
 	ForceZeroWidth          bool
 	StatsCollectionInterval int
 	Logging                 loggingConfig
+	Encryption              encryptionConfig
+}
+
+type encryptionConfig struct {
+	Nonce               string
+	EncryptionKeyLength int
 }
 
 type loggingConfig struct {
