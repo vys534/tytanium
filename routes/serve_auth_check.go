@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/security"
+	"tytanium/security"
 )
 
 // ServeAuthCheck validates the master key by calling IsAuthorized.

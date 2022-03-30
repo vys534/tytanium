@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/constants"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/response"
 	"runtime"
 	"strconv"
+	"tytanium/constants"
+	"tytanium/global"
+	"tytanium/response"
 )
 
 // GeneralStats represent all stats returned when making a GET request to /stats.
 type GeneralStats struct {
 	ServerVersion  string               `json:"server_version"`
 	RuntimeVersion string               `json:"runtime_version,omitempty"`
-	MemoryUsage    int64                `json:"memory_usage,omitempty"`
 	SizeStats      StatsFromSizeChecker `json:"size_stats"`
 }
 
@@ -34,43 +33,57 @@ func ServeStats(ctx *fasthttp.RequestCtx) {
 
 	totalSize, err := getStatValueFromRedis(ctx, global.RedisClient, "sc_total_size")
 	if err != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("An error occurred while trying to get sc_total_size from Redis: %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("An error occurred while trying to get sc_total_size from Redis: %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 	stats.SizeStats.TotalSize = totalSize
 
 	fileCount, err := getStatValueFromRedis(ctx, global.RedisClient, "sc_file_count")
 	if err != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("An error occurred while trying to get sc_file_count from Redis: %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("An error occurred while trying to get sc_file_count from Redis: %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 	stats.SizeStats.FileCount = fileCount
 
 	timeToComplete, err := getStatValueFromRedis(ctx, global.RedisClient, "sc_time_to_complete")
 	if err != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("An error occurred while trying to get sc_time_to_complete from Redis: %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("An error occurred while trying to get sc_time_to_complete from Redis: %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 	stats.SizeStats.TimeToComplete = timeToComplete
 
 	lastUpdated, err := getStatValueFromRedis(ctx, global.RedisClient, "sc_last_updated")
 	if err != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("An error occurred while trying to get sc_last_updated from Redis: %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("An error occurred while trying to get sc_last_updated from Redis: %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 	stats.SizeStats.LastUpdated = lastUpdated
 
 	if global.Configuration.MoreStats {
-		memUsage, err := getStatValueFromRedis(ctx, global.RedisClient, "ty_mem_usage")
-		if err != nil {
-			response.SendTextResponse(ctx, fmt.Sprintf("An error occurred while trying to get ty_mem_usage from Redis: %v", err), fasthttp.StatusInternalServerError)
-			return
-		}
-		stats.MemoryUsage = memUsage
 		stats.RuntimeVersion = runtime.Version()
 	}
 
-	response.SendJSONResponse(ctx, &stats)
+	response.SendJSONResponse(ctx, response.JSONResponse{
+		Status:  response.RequestStatusOK,
+		Data:    &stats,
+		Message: "",
+	}, fasthttp.StatusOK)
 }
 
 func getStatValueFromRedis(ctx *fasthttp.RequestCtx, c *redis.Client, key string) (int64, error) {

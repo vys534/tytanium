@@ -4,9 +4,9 @@ import (
 	"bytes"
 	_ "embed"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/logger"
 	"io"
+	"tytanium/global"
+	"tytanium/logger"
 )
 
 //go:embed favicon.ico

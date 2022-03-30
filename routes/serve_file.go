@@ -3,24 +3,24 @@ package routes
 import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/minio/sio"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/constants"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/response"
-	"github.com/vysiondev/tytanium/security"
-	"github.com/vysiondev/tytanium/utils"
 	"io"
 	"os"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
+	"tytanium/constants"
+	"tytanium/encryption"
+	"tytanium/global"
+	"tytanium/response"
+	"tytanium/security"
+	"tytanium/utils"
 )
 
-const (
-	rawParam                    = "raw"
-	ZeroWidthCharacterFirstByte = 243
-)
+const encryptionKeyParam = "enc_key"
+const rawParam = "raw"
 
 // discordHTML represents what is sent back to any client which User-Agent contains the regex contained in
 // discordBotRegex.
@@ -46,24 +46,33 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 	pBytes := ctx.Request.URI().Path()
 
 	if len(pBytes) > constants.PathLengthLimitBytes {
-		response.SendTextResponse(ctx, "Path is too long.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "Path is too long.",
+		}, fasthttp.StatusOK)
 		return
 	}
 
 	if len(pBytes) <= 1 {
-		response.SendTextResponse(ctx, "Path is too short.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "Path is too short.",
+		}, fasthttp.StatusOK)
+		return
+	}
+
+	if len(ctx.QueryArgs().Peek(encryptionKeyParam)) == 0 {
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "No encryption key was provided. (enc_key)",
+		}, fasthttp.StatusOK)
 		return
 	}
 
 	p := string(pBytes[1:])
-	// Convert entire path to normal string if a zero-width character is detected at the beginning.
-	if pBytes[1] == ZeroWidthCharacterFirstByte {
-		p = utils.StringToZeroWidthCharacters(p)
-		if len(p) == 0 {
-			response.SendTextResponse(ctx, "Malformed zero-width URL path.", fasthttp.StatusBadRequest)
-			return
-		}
-	}
 
 	filePath := path.Join(global.Configuration.Storage.Directory, p)
 
@@ -74,42 +83,91 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 			ServeNotFound(ctx)
 			return
 		}
-		response.SendTextResponse(ctx, fmt.Sprintf("os.Stat() could not be called on the file. %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("os.Stat() could not be called on the file. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 
 	if fileInfo.IsDir() {
-		response.SendTextResponse(ctx, "This is a directory, not a file", fasthttp.StatusBadRequest)
+		ServeNotFound(ctx)
 		return
+	}
+
+	if global.Configuration.RateLimit.Bandwidth.Download > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
+		isBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%s_%s", constants.RateLimitBandwidthDownload, utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Download), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), fileInfo.Size())
+		if err != nil {
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusInternalError,
+				Data:    nil,
+				Message: fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err),
+			}, fasthttp.StatusOK)
+			return
+		}
+		if !isBandwidthLimitNotReached {
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "Download bandwidth limit reached; try again later.",
+			}, fasthttp.StatusTooManyRequests)
+			return
+		}
 	}
 
 	// We don't need a limited reader because mimetype.DetectReader automatically caps it
 	fileReader, e := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if e != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("The file could not be opened. %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("The file could not be opened. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 	defer func() {
 		_ = fileReader.Close()
 	}()
 
-	if global.Configuration.RateLimit.Bandwidth.Download > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
-		isBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%s_%s", constants.RateLimitBandwidthDownload, utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Download), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), fileInfo.Size())
-		if err != nil {
-			response.SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
-			return
-		}
-		if !isBandwidthLimitNotReached {
-			response.SendTextResponse(ctx, "Download bandwidth limit reached; try again later.", fasthttp.StatusTooManyRequests)
-			return
-		}
-	}
-
-	mimeType, e := mimetype.DetectReader(fileReader)
-	if e != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("Cannot detect the mime type of this file retrieved from server. It might be corrupted. %v", e), fasthttp.StatusBadRequest)
+	key, err := encryption.DeriveKey(ctx.QueryArgs().Peek(encryptionKeyParam), []byte(global.Configuration.Encryption.Nonce))
+	if err != nil {
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to generate encryption key. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
+
+	decryptedReader, err := sio.DecryptReader(fileReader, sio.Config{Key: key[:]})
+	if err != nil {
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to create a decrypted reader for mime type inspection. %v", e),
+		}, fasthttp.StatusOK)
+		return
+	}
+
+	mimeType, e := mimetype.DetectReader(decryptedReader)
+	if e != nil {
+		response.SendInvalidEncryptionKeyResponse(ctx)
+		return
+	}
+
+	filterStatus := security.FilterCheck(ctx, mimeType.String())
+	if filterStatus == security.FilterFail {
+		// already sent a response if filter check failed
+		return
+	} else if filterStatus == security.FilterSanitize {
+		ctx.Response.Header.Set("Content-Type", "text/plain; charset=utf8")
+	} else {
+		ctx.Response.Header.Set("Content-Type", mimeType.String())
+	}
+
+	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", p))
+	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 
 	if discordBotRegex.Match(ctx.Request.Header.UserAgent()) && !ctx.QueryArgs().Has(rawParam) {
 		if mimetype.EqualsAny(mimeType.String(), "image/png", "image/jpeg", "image/gif") {
@@ -118,33 +176,31 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 			ctx.Response.Header.Add("Pragma", "no-cache")
 			ctx.Response.Header.Add("Expires", "0")
 
-			u := fmt.Sprintf("%s/%s?%s=true", utils.GetServerRoot(ctx), p, rawParam)
+			u := fmt.Sprintf("%s/%s?%s=true&enc_key=%s", global.Configuration.Domain, p, rawParam, string(ctx.QueryArgs().Peek(encryptionKeyParam)))
 			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", u, 1))
 			return
 		}
 	}
 
-	filterStatus := security.FilterCheck(ctx, mimeType.String())
-	if filterStatus == security.FilterFail {
-		// already sent a response if filter check failed
-		return
-	} else if filterStatus == security.FilterSanitize {
-		ctx.Response.Header.Set("Content-Type", "text/plain")
-	} else {
-		ctx.Response.Header.Set("Content-Type", mimeType.String())
-	}
-	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", p))
-	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
-
-	_, e = fileReader.Seek(0, io.SeekStart)
-	if e != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("Reader could not be reset to its initial position. %v", e), fasthttp.StatusInternalServerError)
+	_, err = fileReader.Seek(0, io.SeekStart)
+	if err != nil {
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to reset file reader to 0. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 
-	_, copyErr := io.Copy(ctx.Response.BodyWriter(), fileReader)
-	if copyErr != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("File wasn't written to the client successfully. %v", copyErr), fasthttp.StatusInternalServerError)
-		return
+	if _, err = sio.Decrypt(ctx.Response.BodyWriter(), fileReader, sio.Config{Key: key[:]}); err != nil {
+		if _, ok := err.(sio.Error); ok {
+			response.SendInvalidEncryptionKeyResponse(ctx)
+			return
+		}
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to write decrypted file to the response body. %v", err),
+		}, fasthttp.StatusOK)
 	}
 }

@@ -3,20 +3,26 @@ package routes
 import (
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/minio/sio"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/constants"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/logger"
-	"github.com/vysiondev/tytanium/response"
-	"github.com/vysiondev/tytanium/security"
-	"github.com/vysiondev/tytanium/utils"
 	"io"
 	"os"
 	"path"
-	"sync"
+	"tytanium/constants"
+	"tytanium/encryption"
+	"tytanium/global"
+	"tytanium/logger"
+	"tytanium/response"
+	"tytanium/security"
+	"tytanium/utils"
 )
 
 const fileHandler = "file"
+
+type uploadResponse struct {
+	URI           string `json:"uri"`
+	EncryptionKey string `json:"encryption_key"`
+}
 
 // ServeUpload handles all incoming POST requests to /upload. It will take a multipart form, parse the file,
 // then write it to disk.
@@ -28,15 +34,27 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	mp, e := ctx.Request.MultipartForm()
 	if e != nil {
 		if e == fasthttp.ErrNoMultipartForm {
-			response.SendTextResponse(ctx, "No multipart form was in the request.", fasthttp.StatusBadRequest)
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "No multipart form was present in the request.",
+			}, fasthttp.StatusOK)
 			return
 		}
-		response.SendTextResponse(ctx, fmt.Sprintf("The multipart form couldn't be parsed. %v", e), fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: fmt.Sprintf("The multipart form couldn't be parsed. %v", e),
+		}, fasthttp.StatusOK)
 		return
 	}
 	defer ctx.Request.RemoveMultipartFormFiles()
 	if mp.File == nil || len(mp.File[fileHandler]) == 0 {
-		response.SendTextResponse(ctx, "No files were sent.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "No files were sent.",
+		}, fasthttp.StatusOK)
 		return
 	}
 	f := mp.File[fileHandler][0]
@@ -44,11 +62,19 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	if global.Configuration.RateLimit.Bandwidth.Upload > 0 && global.Configuration.RateLimit.Bandwidth.ResetAfter > 0 {
 		isUploadBandwidthLimitNotReached, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%s_%s", constants.RateLimitBandwidthUpload, utils.GetIP(ctx)), int64(global.Configuration.RateLimit.Bandwidth.Upload), int64(global.Configuration.RateLimit.Bandwidth.ResetAfter), f.Size)
 		if err != nil {
-			response.SendTextResponse(ctx, fmt.Sprintf("Bandwidth limit couldn't be checked. %v", err), fasthttp.StatusInternalServerError)
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusInternalError,
+				Data:    nil,
+				Message: fmt.Sprintf("Bandwidth limit could not be checked. %v", err),
+			}, fasthttp.StatusOK)
 			return
 		}
 		if !isUploadBandwidthLimitNotReached {
-			response.SendTextResponse(ctx, "Upload bandwidth limit reached; try again later.", fasthttp.StatusTooManyRequests)
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "Upload bandwidth limit reached; try again later.",
+			}, fasthttp.StatusTooManyRequests)
 			return
 		}
 	}
@@ -56,13 +82,21 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 	ext := path.Ext(f.Filename)
 
 	if len(ext) > constants.ExtensionLengthLimit {
-		response.SendTextResponse(ctx, "The file extension is too long.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "File extension is too long.",
+		}, fasthttp.StatusOK)
 		return
 	}
 
 	openedFile, e := f.Open()
 	if e != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("File failed to open. %v", e), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("File could not be opened. %v", e),
+		}, fasthttp.StatusOK)
 		return
 	}
 	defer func() {
@@ -71,7 +105,11 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 
 	mimeType, e := mimetype.DetectReader(openedFile)
 	if e != nil {
-		response.SendTextResponse(ctx, "Cannot detect the mime type of this file.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: "Cannot detect the mime type of this file.",
+		}, fasthttp.StatusOK)
 		return
 	}
 
@@ -83,7 +121,11 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 
 	_, e = openedFile.Seek(0, io.SeekStart)
 	if e != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("Reader could not be reset to its initial position. %v", e), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Reader could not be reset to its initial position. %v", e),
+		}, fasthttp.StatusOK)
 		return
 	}
 
@@ -92,15 +134,8 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 
 	// loop until an unoccupied id is found
 	for {
-		var wg sync.WaitGroup
-		randomStringChan := make(chan string, 1)
-		go func() {
-			wg.Add(1)
-			utils.RandBytes(global.Configuration.Storage.IDLength, randomStringChan, func() { wg.Done() })
-		}()
-		wg.Wait()
-		fileId := <-randomStringChan
 
+		fileId := utils.RandString(global.Configuration.Storage.IDLength)
 		fileName = fileId + ext
 
 		i, e := os.Stat(path.Join(global.Configuration.Storage.Directory, fileName))
@@ -114,28 +149,59 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 		}
 		attempts++
 		if attempts >= global.Configuration.Storage.CollisionCheckAttempts {
-			response.SendTextResponse(ctx, "Tried too many times to find a valid file ID to use. Consider increasing the ID length.", fasthttp.StatusInternalServerError)
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "Tried too many times to find a valid file ID to use. Consider increasing the ID length.",
+			}, fasthttp.StatusOK)
 			return
 		}
 	}
 
-	fsFile, err := os.Create(path.Join(global.Configuration.Storage.Directory, fileName))
+	destFile, err := os.Create(path.Join(global.Configuration.Storage.Directory, fileName))
 	defer func() {
-		_ = fsFile.Close()
+		_ = destFile.Close()
 	}()
 
 	if err != nil {
 		if err == os.ErrPermission {
-			response.SendTextResponse(ctx, fmt.Sprintf("Permission to create a file was denied. %v", err), fasthttp.StatusInternalServerError)
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusInternalError,
+				Data:    nil,
+				Message: fmt.Sprintf("Permission to create the file was denied. %v", err),
+			}, fasthttp.StatusOK)
 			return
 		}
-		response.SendTextResponse(ctx, fmt.Sprintf("Could not create the file. %v", err), fasthttp.StatusInternalServerError)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to create the file. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 
-	_, writeErr := io.Copy(fsFile, openedFile)
-	if writeErr != nil {
-		response.SendTextResponse(ctx, fmt.Sprintf("The file failed to write to disk. %v", e), fasthttp.StatusInternalServerError)
+	masterKey := utils.RandString(global.Configuration.Encryption.EncryptionKeyLength)
+
+	key, err := encryption.DeriveKey([]byte(masterKey), []byte(global.Configuration.Encryption.Nonce))
+	if err != nil {
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to generate encryption key. %v", err),
+		}, fasthttp.StatusOK)
+		return
+	}
+
+	if _, err = sio.Encrypt(destFile, openedFile, sio.Config{Key: key[:]}); err != nil {
+		if _, ok := err.(sio.Error); ok {
+			response.SendInvalidEncryptionKeyResponse(ctx)
+			return
+		}
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusInternalError,
+			Data:    nil,
+			Message: fmt.Sprintf("Failed to write encrypted file to disk. %v", err),
+		}, fasthttp.StatusOK)
 		return
 	}
 
@@ -143,16 +209,19 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 		logger.InfoLogger.Printf("File %s was created, size: %d", fileName, f.Size)
 	}
 
-	if global.Configuration.ForceZeroWidth || string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
-		fileName = utils.ZeroWidthCharactersToString(fileName)
-	}
-
 	var u string
 	if string(ctx.QueryArgs().Peek("omitdomain")) == "1" {
 		u = fileName
 	} else {
-		u = fmt.Sprintf("%s/%s", utils.GetServerRoot(ctx), fileName)
+		u = fmt.Sprintf("%s/%s?enc_key=%s", global.Configuration.Domain, fileName, masterKey)
 	}
 
-	response.SendTextResponse(ctx, u, fasthttp.StatusOK)
+	response.SendJSONResponse(ctx, response.JSONResponse{
+		Status: response.RequestStatusOK,
+		Data: uploadResponse{
+			URI:           u,
+			EncryptionKey: masterKey,
+		},
+		Message: "",
+	}, fasthttp.StatusOK)
 }
