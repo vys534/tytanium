@@ -13,6 +13,7 @@ type Configuration struct {
 	StatsCollectionInterval int
 	Logging                 loggingConfig
 	Encryption              encryptionConfig
+	Domain                  string
 }
 
 type encryptionConfig struct {

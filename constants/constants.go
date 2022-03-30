@@ -23,7 +23,7 @@ const (
 
 const (
 	RateLimitBandwidthDownload = "bw_dn_"
-	RateLimitBandwidthUpload = "bw_up_"
+	RateLimitBandwidthUpload   = "bw_up_"
 )
 
 const (

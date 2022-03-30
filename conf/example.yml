@@ -108,3 +108,19 @@ Logging: # Configure logging behavior.
 
   # If logging is enabled, where should logs be written to? (Default is "log.txt" file in the project dir)
   LogFile:
+
+Encryption: # Configure encryption behavior.
+  # The length of the encryption key that is used in the query string (enc_key) when decoding files.
+  # Try not to make it too long or URLs will be abnormally long.
+  # By default, the length is 12.
+  EncryptionKeyLength:
+
+  # The string which helps in creating the encryption key for files.
+  # You don't have to keep it private, and it can be any string.
+  # Keep in mind that if you change this, files previously encrypted using this nonce will be impossible to decrypt.
+  Nonce:
+
+# The URL from which this server will be accessible from, for example, https://example.com.
+# If you have multiple proxy domains, pick one of them to use here;
+# it doesn't matter as long as it connects to the server.
+Domain:
