@@ -4,12 +4,14 @@
 
 Tytanium is a private file host program, meant for a single user or a small group. Here are the main highlights:
 
-- SHA-512 file encryption at rest, with an encryption key unique to each file
+- SHA2-512 file encryption at rest, with an encryption key unique to each file
 - Tune the server to exactly how you want with extensive customization options
 - Works well with image capture suites, such as ShareX/MagicCap
 - Good on system resources (<1MiB memory usage when idle)
 - Limit how many requests/second to certain paths to prevent DoS attacks or an overloaded server
 - Not written in Javascript! 
+
+*Please note that files are NOT encrypted client-side; encryption is done on the server.*
 
 ### Setup
 
