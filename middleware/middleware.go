@@ -3,13 +3,13 @@ package middleware
 import (
 	"fmt"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/constants"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/response"
-	"github.com/vysiondev/tytanium/routes"
-	"github.com/vysiondev/tytanium/security"
-	"github.com/vysiondev/tytanium/utils"
 	"strings"
+	"tytanium/constants"
+	"tytanium/global"
+	"tytanium/response"
+	"tytanium/routes"
+	"tytanium/security"
+	"tytanium/utils"
 )
 
 // LimitPath generally handles all paths.
@@ -38,7 +38,11 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 				// Check the global rate limit
 				isGlobalRateLimitOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("G_%s", ip), int64(global.Configuration.RateLimit.Path.Global), int64(global.Configuration.RateLimit.ResetAfter), 1)
 				if err != nil {
-					response.SendTextResponse(ctx, "Failed to call Try() to get information on global rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
+					response.SendJSONResponse(ctx, response.JSONResponse{
+						Status:  response.RequestStatusInternalError,
+						Data:    nil,
+						Message: fmt.Sprintf("Failed to call Try() to get information on global rate limit. %v", err),
+					}, fasthttp.StatusOK)
 					return
 				}
 				if !isGlobalRateLimitOk {
@@ -49,7 +53,11 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 					// Check the route exclusive rate limit
 					isPathOk, err := security.Try(ctx, global.RedisClient, fmt.Sprintf("%d_%s", pathType, ip), int64(reqLimit), int64(global.Configuration.RateLimit.ResetAfter), 1)
 					if err != nil {
-						response.SendTextResponse(ctx, "Failed to call Try() to get information on path-specific rate limit. "+err.Error(), fasthttp.StatusInternalServerError)
+						response.SendJSONResponse(ctx, response.JSONResponse{
+							Status:  response.RequestStatusInternalError,
+							Data:    nil,
+							Message: fmt.Sprintf("Failed to call Try() to get information on path-specific rate limit. %v", err),
+						}, fasthttp.StatusOK)
 						return
 					}
 
@@ -58,7 +66,11 @@ func LimitPath(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 					}
 				}
 				if len(rlString) > 0 {
-					response.SendTextResponse(ctx, fmt.Sprintf("You are being rate limited. (%s)", rlString), fasthttp.StatusTooManyRequests)
+					response.SendJSONResponse(ctx, response.JSONResponse{
+						Status:  response.RequestStatusInternalError,
+						Data:    nil,
+						Message: fmt.Sprintf("You are being rate limited. (%s)", rlString),
+					}, fasthttp.StatusTooManyRequests)
 					return
 				}
 				h(ctx)
