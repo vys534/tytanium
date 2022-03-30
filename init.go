@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
-	"github.com/vysiondev/tytanium/constants"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/logger"
 	"log"
 	"os"
 	"time"
+	"tytanium/constants"
+	"tytanium/global"
+	"tytanium/logger"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 )
 
 func init() {
-	log.Print("⬢ Tytanium secure file host server v" + constants.Version + "\n\n")
+	fmt.Printf("[ ⬢ Tytanium v%s ]\n", constants.Version)
 	initConfiguration()
 	initLogger()
 	checkStorage()
@@ -61,10 +62,21 @@ func initConfiguration() {
 	viper.SetDefault("Logging.Enabled", true)
 	viper.SetDefault("Logging.LogFile", "log.txt")
 
+	viper.SetDefault("Encryption.EncryptionKeyLength", 12)
+
 	err := viper.Unmarshal(&global.Configuration)
 	if err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)
 	}
+
+	if len(global.Configuration.Domain) == 0 {
+		log.Fatalf("Domain must be set in the configuration.")
+	}
+
+	if len(global.Configuration.Encryption.Nonce) == 0 {
+		log.Fatalf("You must set a nonce for encryption purposes. (Under Encryption.Nonce, use any string you want. It does not need to be secret.)")
+	}
+
 	if len(global.Configuration.Security.MasterKey) == 0 {
 		log.Println("Warning: Master key has not set in your configuration. Anyone on the Internet has permission to upload!")
 		if !global.Configuration.Security.DisableEmptyMasterKeyWarning {
@@ -73,11 +85,13 @@ func initConfiguration() {
 		}
 	}
 
+	// TODO: what the fuck is this clean it up
 	// - ID length * 4 bytes,
 	// - extension length limit * 4 bytes,
 	// - 1 byte for the / character,
 	// - 4 bytes for the . character
-	constants.PathLengthLimitBytes = (global.Configuration.Storage.IDLength * 4) + (constants.ExtensionLengthLimit * 4) + 5
+	// - X bytes for encryption key
+	constants.PathLengthLimitBytes = (global.Configuration.Storage.IDLength * 4) + (constants.ExtensionLengthLimit * 4) + 5 + global.Configuration.Encryption.EncryptionKeyLength
 
 	log.Println("[init] Loaded configuration")
 }
@@ -91,8 +105,8 @@ func initLogger() {
 		log.Fatalf("Failed to open log file! %v", err)
 	}
 
-	logger.InfoLogger = log.New(file, "info:", log.Ldate|log.Ltime|log.Lshortfile)
-	logger.ErrorLogger = log.New(file, "error:", log.Ldate|log.Ltime|log.Lshortfile)
+	logger.InfoLogger = log.New(file, "info:", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
+	logger.ErrorLogger = log.New(file, "error:", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	log.Println("[init] Loggers initialized, output file: " + global.Configuration.Logging.LogFile)
 }
