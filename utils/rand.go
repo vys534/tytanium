@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"encoding/hex"
 	"math/rand"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -34,4 +36,24 @@ func RandBytes(n int, c chan<- string, onExit func()) {
 	}
 
 	c <- *(*string)(unsafe.Pointer(&b))
+}
+
+func RandomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func RandString(len int) string {
+	var wg sync.WaitGroup
+	randomStringChan := make(chan string, 1)
+	go func() {
+		wg.Add(1)
+		RandBytes(len, randomStringChan, func() { wg.Done() })
+	}()
+	wg.Wait()
+	o := <-randomStringChan
+	return o
 }
