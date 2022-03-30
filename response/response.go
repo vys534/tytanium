@@ -4,15 +4,29 @@ import (
 	json2 "encoding/json"
 	"fmt"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/logger"
 	"log"
+	"tytanium/global"
+	"tytanium/logger"
 )
 
 const (
 	plainTextContentType = "text/plain; charset=utf8"
 	jsonContentType      = "application/json"
 )
+
+type RequestStatus int
+
+const (
+	RequestStatusOK = iota
+	RequestStatusError
+	RequestStatusInternalError
+)
+
+type JSONResponse struct {
+	Status  RequestStatus `json:"status"`
+	Data    interface{}   `json:"data,omitempty"`
+	Message string        `json:"message,omitempty"`
+}
 
 // SendTextResponse sends a plaintext response to the client along with an HTTP status code.
 func SendTextResponse(ctx *fasthttp.RequestCtx, msg string, code int) {
@@ -35,8 +49,9 @@ func SendTextResponse(ctx *fasthttp.RequestCtx, msg string, code int) {
 }
 
 // SendJSONResponse sends a JSON encoded response to the client along with an HTTP status code of 200 OK.
-func SendJSONResponse(ctx *fasthttp.RequestCtx, json interface{}) {
+func SendJSONResponse(ctx *fasthttp.RequestCtx, json interface{}, statusCode int) {
 	ctx.SetContentType(jsonContentType)
+	ctx.SetStatusCode(statusCode)
 	e := json2.NewEncoder(ctx.Response.BodyWriter()).Encode(json)
 	if e != nil {
 		if global.Configuration.Logging.Enabled {
@@ -44,11 +59,12 @@ func SendJSONResponse(ctx *fasthttp.RequestCtx, json interface{}) {
 		}
 		log.Printf(fmt.Sprintf("JSON failed to send! %v", e))
 	}
-
 }
 
-// SendNothing sends 204 No Content.
-// TODO: remove in the future if not needed.
-func SendNothing(ctx *fasthttp.RequestCtx) {
-	ctx.SetStatusCode(fasthttp.StatusNoContent)
+func SendInvalidEncryptionKeyResponse(ctx *fasthttp.RequestCtx) {
+	SendJSONResponse(ctx, JSONResponse{
+		Status:  RequestStatusError,
+		Data:    nil,
+		Message: "Encryption key is invalid, or file contents have been modified.",
+	}, fasthttp.StatusOK)
 }
