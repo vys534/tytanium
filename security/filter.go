@@ -3,8 +3,8 @@ package security
 import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/response"
+	"tytanium/global"
+	"tytanium/response"
 )
 
 type FilterStatus int

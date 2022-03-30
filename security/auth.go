@@ -2,8 +2,8 @@ package security
 
 import (
 	"github.com/valyala/fasthttp"
-	"github.com/vysiondev/tytanium/global"
-	"github.com/vysiondev/tytanium/response"
+	"tytanium/global"
+	"tytanium/response"
 )
 
 // IsAuthorized compares the Authorization header to the master key. If they don't match,
