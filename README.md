@@ -9,6 +9,7 @@ Tytanium is a private file host program, meant for a single user or a small grou
 - Works well with image capture suites, such as ShareX/MagicCap
 - Good on system resources (<1MiB memory usage when idle)
 - Limit how many requests/second to certain paths to prevent DoS attacks or an overloaded server
+- Zero-width strings: make your links appear invisible! (Example: https://example.com/file.png?enc_key=X appears as https://example.com/)
 - Not written in Javascript! 
 
 *Please note that files are NOT encrypted client-side; encryption is done on the server.*
@@ -19,11 +20,36 @@ Tytanium is a private file host program, meant for a single user or a small grou
 2. Rename `example.yml` to `config.yml` and set the values you want, or create a `config.yml` from scratch.
 3. Mark the binary as executable (this can be done with `chmod`).
 
-### How to Upload
+### Upload & Response
 
-1. Create a POST request to `/upload` with a file in the field "file". Put the key in the `Authorization` header.
-2. Set `?omitdomain=1`, if you don't want the host's original domain appended before the file name in the response. For example: `a.png` instead of `https://a.com/a.png`. This is useful if you have vanity/proxy domains you want to use.
-3. The server will respond with JSON with fields `uri` and `encryption_key`. `uri` will be just the file name if `?omitdomain=1` was specified.
+Create a POST request to `/upload` with a file in the field "file". Put the key in the `Authorization` header.
+
+Query arguments you can pass:
+- `?zerowidth=1`: Zero-width links. By enabling this, you can turn a URL's path invisible (See example above in the feature list).
+  - *`uri` will be zero-width if you specified `?zerowidth=1`.*
+
+Example response on success:
+
+```json
+{
+   "status": 0,
+   "data": {
+      "uri": "https://example.com/file.png?enc_key=ABCDEF",
+      "path": "file.png?enc_key=ABCDEF",
+      "file_name": "file.png",
+      "encryption_key": "ABCDEF"
+   }
+}
+```
+
+If there's any error, the response will look like this. Status code `1` means a generic error, `2` means something broke internally. `message` will contain the error message.
+
+```json
+{
+   "status:": 1,
+   "message": "Error message"
+}
+```
 
 ### Optional stuff
 
