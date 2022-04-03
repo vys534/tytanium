@@ -6,6 +6,7 @@ import (
 	"github.com/minio/sio"
 	"github.com/valyala/fasthttp"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -19,8 +20,11 @@ import (
 	"tytanium/utils"
 )
 
-const encryptionKeyParam = "enc_key"
-const rawParam = "raw"
+const (
+	paramEncryptionKey  = "enc_key"
+	paramRaw            = "raw"
+	ZeroWidthFirstByte  = 37
+)
 
 // discordHTML represents what is sent back to any client which User-Agent contains the regex contained in
 // discordBotRegex.
@@ -43,9 +47,7 @@ var (
 // ServeFile will serve the / endpoint. It gets the "id" variable from mux and tries to find the file's information in the database.
 // If an ID is either not provided or not found, the function hands the request off to ServeNotFound.
 func ServeFile(ctx *fasthttp.RequestCtx) {
-	pBytes := ctx.Request.URI().Path()
-
-	if len(pBytes) > constants.PathLengthLimitBytes {
+	if len(ctx.Request.RequestURI()) > constants.PathLengthLimitBytes {
 		response.SendJSONResponse(ctx, response.JSONResponse{
 			Status:  response.RequestStatusError,
 			Data:    nil,
@@ -54,7 +56,7 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if len(pBytes) <= 1 {
+	if len(ctx.Request.RequestURI()) <= 1 {
 		response.SendJSONResponse(ctx, response.JSONResponse{
 			Status:  response.RequestStatusError,
 			Data:    nil,
@@ -63,7 +65,31 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if len(ctx.QueryArgs().Peek(encryptionKeyParam)) == 0 {
+	// Convert entire request URI to a normal string if the first byte represents a URL-encoded string.
+	if ctx.Request.RequestURI()[1] == ZeroWidthFirstByte {
+		uriDecoded, err := url.QueryUnescape(string(ctx.Request.RequestURI()))
+		if err != nil {
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "Failed to decode string.",
+			}, fasthttp.StatusOK)
+			return
+		}
+
+		if len(uriDecoded) <= 1 {
+			response.SendJSONResponse(ctx, response.JSONResponse{
+				Status:  response.RequestStatusError,
+				Data:    nil,
+				Message: "Zero-width string is not long enough.",
+			}, fasthttp.StatusOK)
+			return
+		}
+
+		ctx.Request.SetRequestURI("/" + utils.ZeroWidthToString(uriDecoded[1:]))
+	}
+
+	if len(ctx.QueryArgs().Peek(paramEncryptionKey)) == 0 {
 		response.SendJSONResponse(ctx, response.JSONResponse{
 			Status:  response.RequestStatusError,
 			Data:    nil,
@@ -72,9 +98,8 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	p := string(pBytes[1:])
-
-	filePath := path.Join(global.Configuration.Storage.Directory, p)
+	pathNoLeadingSlash := string(ctx.Request.URI().Path()[1:])
+	filePath := path.Join(global.Configuration.Storage.Directory, pathNoLeadingSlash)
 
 	// we only need to know if it exists or not
 	fileInfo, err := os.Stat(filePath)
@@ -130,7 +155,7 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		_ = fileReader.Close()
 	}()
 
-	key, err := encryption.DeriveKey(ctx.QueryArgs().Peek(encryptionKeyParam), []byte(global.Configuration.Encryption.Nonce))
+	key, err := encryption.DeriveKey(ctx.QueryArgs().Peek(paramEncryptionKey), []byte(global.Configuration.Encryption.Nonce))
 	if err != nil {
 		response.SendJSONResponse(ctx, response.JSONResponse{
 			Status:  response.RequestStatusInternalError,
@@ -166,17 +191,17 @@ func ServeFile(ctx *fasthttp.RequestCtx) {
 		ctx.Response.Header.Set("Content-Type", mimeType.String())
 	}
 
-	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", p))
+	ctx.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", pathNoLeadingSlash))
 	ctx.Response.Header.Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 
-	if discordBotRegex.Match(ctx.Request.Header.UserAgent()) && !ctx.QueryArgs().Has(rawParam) {
+	if discordBotRegex.Match(ctx.Request.Header.UserAgent()) && !ctx.QueryArgs().Has(paramRaw) {
 		if mimetype.EqualsAny(mimeType.String(), "image/png", "image/jpeg", "image/gif") {
 			ctx.Response.Header.SetContentType("text/html; charset=utf8")
 			ctx.Response.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
 			ctx.Response.Header.Add("Pragma", "no-cache")
 			ctx.Response.Header.Add("Expires", "0")
 
-			u := fmt.Sprintf("%s/%s?%s=true&enc_key=%s", global.Configuration.Domain, p, rawParam, string(ctx.QueryArgs().Peek(encryptionKeyParam)))
+			u := fmt.Sprintf("%s/%s?%s=true&enc_key=%s", global.Configuration.Domain, pathNoLeadingSlash, paramRaw, string(ctx.QueryArgs().Peek(paramEncryptionKey)))
 			_, _ = fmt.Fprint(ctx.Response.BodyWriter(), strings.Replace(discordHTML, "{{.}}", u, 1))
 			return
 		}

@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	mebibyte = 1 << 20
-	minute   = 60000
+	mebibyte                  = 1 << 20
+	minute                    = 60000
+	characterTagLengthEncoded = 12
 )
 
 func init() {
@@ -85,14 +86,17 @@ func initConfiguration() {
 		}
 	}
 
-	// TODO: what the fuck is this clean it up
-	// - ID length * 4 bytes,
-	// - extension length limit * 4 bytes,
-	// - 1 byte for the / character,
-	// - 4 bytes for the . character
-	// - X bytes for encryption key
-	constants.PathLengthLimitBytes = (global.Configuration.Storage.IDLength * 4) + (constants.ExtensionLengthLimit * 4) + 5 + global.Configuration.Encryption.EncryptionKeyLength
-
+	// Domain length + 1 byte for "/"
+	// ID length * 12 (%00%00%00%00)
+	// Extension length * 12
+	// 9 (?enc_key=) * 12
+	// Encryption key length * 12
+	constants.PathLengthLimitBytes =
+		(len(global.Configuration.Domain) + 1) +
+			(global.Configuration.Storage.IDLength * characterTagLengthEncoded) +
+			(constants.ExtensionLengthLimit * characterTagLengthEncoded) +
+			(9 * characterTagLengthEncoded) +
+			(global.Configuration.Encryption.EncryptionKeyLength * characterTagLengthEncoded)
 	log.Println("[init] Loaded configuration")
 }
 

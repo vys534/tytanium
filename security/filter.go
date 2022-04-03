@@ -21,11 +21,19 @@ const (
 // FilterSanitize means the file's Content-Type header returned to the client should be changed to text/plain.
 func FilterCheck(ctx *fasthttp.RequestCtx, mimeType string) FilterStatus {
 	if len(global.Configuration.Filter.Blacklist) > 0 && mimetype.EqualsAny(mimeType, global.Configuration.Filter.Blacklist...) {
-		response.SendTextResponse(ctx, "File type is blacklisted.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "This file type is blacklisted.",
+		}, fasthttp.StatusOK)
 		return FilterFail
 	}
 	if len(global.Configuration.Filter.Whitelist) > 0 && !mimetype.EqualsAny(mimeType, global.Configuration.Filter.Whitelist...) {
-		response.SendTextResponse(ctx, "File type is not whitelisted.", fasthttp.StatusBadRequest)
+		response.SendJSONResponse(ctx, response.JSONResponse{
+			Status:  response.RequestStatusError,
+			Data:    nil,
+			Message: "This file type is not whitelisted.",
+		}, fasthttp.StatusOK)
 		return FilterFail
 	}
 	if len(global.Configuration.Filter.Sanitize) > 0 && mimetype.EqualsAny(mimeType, global.Configuration.Filter.Sanitize...) {

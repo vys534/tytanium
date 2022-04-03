@@ -1,13 +1,16 @@
 {
-  "Version": "13.7.0",
-  "Name": "Tytanium Example Configuration",
+  "Version": "13.5.0",
   "DestinationType": "ImageUploader, TextUploader, FileUploader",
   "RequestMethod": "POST",
   "RequestURL": "https://yourdomainhere.com/upload",
+    "Parameters": {
+      "zerowidth": "$prompt:zero width (1=y, 0=n, 0 default)|0$"
+    },
   "Headers": {
     "Authorization": "your key here"
   },
   "Body": "MultipartFormData",
   "FileFormName": "file",
-  "URL": "$response$"
+  "URL": "$json:data.uri$",
+  "ErrorMessage": "$json:message$"
 }

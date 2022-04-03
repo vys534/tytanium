@@ -7,5 +7,9 @@ import (
 
 // ServeNotFound will always return an HTTP status code of 404 + error message text.
 func ServeNotFound(ctx *fasthttp.RequestCtx) {
-	response.SendTextResponse(ctx, "Not found", fasthttp.StatusNotFound)
+	response.SendJSONResponse(ctx, response.JSONResponse{
+		Status:  response.RequestStatusError,
+		Data:    nil,
+		Message: "Not found.",
+	}, fasthttp.StatusNotFound)
 }

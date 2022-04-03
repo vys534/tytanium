@@ -19,11 +19,6 @@ import (
 
 const fileHandler = "file"
 
-type uploadResponse struct {
-	URI           string `json:"uri"`
-	EncryptionKey string `json:"encryption_key"`
-}
-
 // ServeUpload handles all incoming POST requests to /upload. It will take a multipart form, parse the file,
 // then write it to disk.
 func ServeUpload(ctx *fasthttp.RequestCtx) {
@@ -209,17 +204,23 @@ func ServeUpload(ctx *fasthttp.RequestCtx) {
 		logger.InfoLogger.Printf("File %s was created, size: %d", fileName, f.Size)
 	}
 
-	var u string
-	if string(ctx.QueryArgs().Peek("omitdomain")) == "1" {
-		u = fileName
-	} else {
-		u = fmt.Sprintf("%s/%s?enc_key=%s", global.Configuration.Domain, fileName, masterKey)
+	targetPath := fmt.Sprintf("%s?enc_key=%s", fileName, masterKey)
+
+	if global.Configuration.ForceZeroWidth || string(ctx.QueryArgs().Peek("zerowidth")) == "1" {
+		targetPath = utils.StringToZeroWidth(targetPath)
 	}
 
 	response.SendJSONResponse(ctx, response.JSONResponse{
 		Status: response.RequestStatusOK,
-		Data: uploadResponse{
-			URI:           u,
+		Data: struct {
+			URI           string `json:"uri"`
+			Path          string `json:"path"`
+			FileName      string `json:"file_name"`
+			EncryptionKey string `json:"encryption_key"`
+		}{
+			URI:           global.Configuration.Domain + "/" + targetPath,
+			Path:          targetPath,
+			FileName:      fileName,
 			EncryptionKey: masterKey,
 		},
 		Message: "",
